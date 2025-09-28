@@ -1,0 +1,154 @@
+[
+    {
+        "hex": "#f0f0f0",
+        "name": "Gloss White",
+        "code": "8-0990",
+        "spray": "8-20990"
+    },
+    {
+        "hex": "#f2f2f1",
+        "name": "I.H. White",
+        "code": "8-0951",
+        "spray": "8-20951"
+    },
+    {
+        "hex": "#d3ccb5",
+        "name": "Ag./Safety Yellow",
+        "code": "8-0957",
+        "spray": "8-20957"
+    },
+    {
+        "hex": "#edca4b",
+        "name": "N.H. Yellow",
+        "code": "8-0952",
+        "spray": "8-20952"
+    },
+    {
+        "hex": "#f2cd49",
+        "name": "Equipment Yellow",
+        "code": "8-0964",
+        "spray": "8-20964"
+    },
+    {
+        "hex": "#d1bb74",
+        "name": "Caterpillar Yellow",
+        "code": "8-0962",
+        "spray": "8-20962"
+    },
+    {
+        "hex": "#f1af45",
+        "name": "Cub Cadet Yellow",
+        "code": "8-0950",
+        "spray": "8-20950",
+        "note": "Spray Only"
+    },
+    {
+        "hex": "#f1ac3d",
+        "name": "School Bus Yellow",
+        "code": "8-0973",
+        "spray": "8-20973"
+    },
+    {
+        "hex": "#efae44",
+        "name": "Case Power Yellow",
+        "code": "8-0983",
+        "spray": "8-20983"
+    },
+    {
+        "hex": "#d66e4b",
+        "name": "Case Orange",
+        "code": "8-0958",
+        "spray": "8-20958",
+        "note": "Spray Only"
+    },
+    {
+        "hex": "#df714d",
+        "name": "A.C. Orange",
+        "code": "8-0965",
+        "spray": "8-20965"
+    },
+    {
+        "hex": "#e0684b",
+        "name": "Kubota Orange",
+        "code": "8-0971",
+        "spray": "8-20971"
+    },
+    {
+        "hex": "#db444b",
+        "name": "Ford Red",
+        "code": "8-0954",
+        "spray": "8-20954"
+    },
+    {
+        "hex": "#e4464d",
+        "name": "M.F. Red",
+        "code": "8-0961",
+        "spray": "8-20961"
+    },
+    {
+        "hex": "#bb484c",
+        "name": "N.H. Red",
+        "code": "8-0956",
+        "spray": "8-20956"
+    },
+    {
+        "hex": "#b74350",
+        "name": "I.H. Red",
+        "code": "8-0972",
+        "spray": "8-20972"
+    },
+    {
+        "hex": "#bd4350",
+        "name": "Ag./Safety Green",
+        "code": "8-0966",
+        "spray": "8-20966"
+    },
+    {
+        "hex": "#39865c",
+        "name": "Oliver Green",
+        "code": "8-0974",
+        "spray": "8-20974"
+    },
+    {
+        "hex": "#387496",
+        "name": "Ford/Safety Blue",
+        "code": "8-0968",
+        "spray": "8-20968"
+    },
+    {
+        "hex": "#39779a",
+        "name": "N.F./N.H. Blue",
+        "code": "8-0979",
+        "spray": "8-20979"
+    },
+    {
+        "hex": "#337db1",
+        "name": "Light Ford Gray",
+        "code": "8-0967",
+        "spray": "8-20967"
+    },
+    {
+        "hex": "#879299",
+        "name": "Gray Primer",
+        "code": "8-0986",
+        "spray": "8-20986"
+    },
+    {
+        "hex": "#8b979d",
+        "name": "M.F. Gray",
+        "code": "8-0955",
+        "spray": "8-20955"
+    },
+    {
+        "hex": "#80847c",
+        "name": "Red Oxide Primer",
+        "code": "8-0989",
+        "spray": "8-20989"
+    },
+    {
+        "hex": "#414142",
+        "name": "Gloss Black",
+        "code": "8-0994",
+        "spray": "8-20994"
+    }
+]
