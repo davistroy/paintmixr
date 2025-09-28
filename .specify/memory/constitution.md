@@ -1,50 +1,59 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+- Version change: initial → 1.0.0
+- Modified principles: none (initial creation)
+- Added sections: Core Principles (5), Color Accuracy Standards, Development Standards, Governance
+- Removed sections: none
+- Templates requiring updates: ✅ all verified compatible
+- Follow-up TODOs: none
+-->
+
+# Paint Mixer App Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Color Accuracy First (NON-NEGOTIABLE)
+All color-related calculations, displays, and user interfaces MUST prioritize color accuracy over convenience or speed. Delta E ≤ 4.0 commercial printing standard is the minimum acceptable accuracy for color matching. Color science calculations MUST use proper LAB color space conversions and CIE 2000 Delta E formulas. UI design MUST use neutral backgrounds (#FFFFFF for color swatches, neutral grays for interface) to prevent color contamination during evaluation.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Documentation Currency via Context7 MCP
+All external library documentation, API references, and technical research MUST be obtained through the context7 MCP server to ensure latest information is used at all times. Development decisions based on documentation MUST verify currency through context7 before implementation. Cached or stale documentation sources are prohibited for making technical choices.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Test-First Development (NON-NEGOTIABLE)
+TDD mandatory for all color calculation algorithms and core functionality: Tests written → User approved → Tests fail → Then implement. Red-Green-Refactor cycle strictly enforced. Color accuracy tests MUST include reference implementations and known-good color conversion cases. Performance tests MUST verify sub-500ms response times for color calculations.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Type Safety & Validation
+TypeScript strict mode enforced throughout. All user inputs MUST be validated with Zod schemas before processing. API contracts MUST be defined in OpenAPI format with TypeScript type generation. Runtime validation MUST match compile-time types. Color values MUST use validated ColorValue interface with proper hex and LAB representations.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Performance & Accessibility Standards
+Color calculations MUST complete within 500ms, image processing within 2 seconds, UI interactions at 60fps. Web Workers MUST be used for intensive calculations to prevent UI blocking. WCAG 2.1 AA accessibility standards MUST be met including color contrast ratios ≥4.5:1 for normal text. Touch targets MUST be minimum 44px for mobile interfaces.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Color Accuracy Standards
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### Measurement Requirements
+All color matching MUST achieve Delta E ≤ 4.0 (commercial printing standard) between target and achievable colors. Color conversions MUST preserve accuracy through proper XYZ intermediate space. Paint mixing algorithms MUST implement Kubelka-Munk theory for realistic opacity and scattering simulation.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### Display Standards
+Color workspace backgrounds MUST use pure white (#FFFFFF) to prevent color contamination. Interface colors MUST use the approved neutral palette from user_info/colors.md. Color accuracy indicators MUST provide clear visual feedback for Delta E values (≤2.0 = Excellent, ≤4.0 = Good, >4.0 = Poor).
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Standards
+
+### Technology Stack Compliance
+MUST follow approved tech stack from user_info/generic_web_tech_stack.MD unless deviation is justified for color accuracy requirements. Next.js 15+ with TypeScript, Supabase backend, Shadcn UI components are mandated. React Hook Form + Zod validation required for all forms.
+
+### Code Quality Gates
+All code MUST pass TypeScript strict mode compilation. ESLint and Prettier MUST be configured and passing. Supabase RLS policies MUST be implemented for all user data tables. Environment variables MUST be validated with Zod schemas.
+
+### Performance Monitoring
+Response time monitoring MUST be implemented for all color calculations. Color accuracy metrics MUST be tracked and reported. User session data MUST include performance and accuracy metadata for continuous improvement.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+Constitution supersedes all other development practices and style guides. All pull requests MUST verify constitutional compliance before merge. Complex technical decisions that deviate from principles MUST be justified in writing with alternative analysis.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+Amendment Process: Constitutional changes require explicit version bump with impact analysis. Major changes (principle removal/redefinition) increment major version. New principles or expanded guidance increment minor version. Clarifications and refinements increment patch version.
+
+Compliance Review: All feature planning (/plan command) MUST include Constitution Check phase. All task generation (/tasks command) MUST align with constitutional requirements. Code reviews MUST verify adherence to color accuracy and performance standards.
+
+Use CLAUDE.md for runtime development guidance that supplements but never overrides constitutional principles.
+
+**Version**: 1.0.0 | **Ratified**: 2025-09-28 | **Last Amended**: 2025-09-28
