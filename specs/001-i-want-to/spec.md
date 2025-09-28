@@ -54,11 +54,11 @@ Artists and paint mixing professionals need to accurately mix physical paints to
 4. **Given** an uploaded image, **When** user selects a color from the image, **Then** system extracts the color and provides mixing ratios as if input via hex code
 5. **Given** saved mixing sessions, **When** user searches for previous sessions, **Then** system displays sessions with labels, dates, and mixing details
 
-### Edge Cases
-- When target colors cannot be achieved with available paints, system shows closest achievable color with accuracy rating and provides multiple alternative mixing approaches
-- How does system handle images with multiple colors or unclear color selection?
-- What happens when users input invalid hex codes or extremely unusual color values?
-- How does system behave when paint inventory is insufficient for recommended mixing ratios?
+### Edge Cases & Error Handling
+- **Unachievable Colors**: When target colors cannot be matched within Delta E ≤ 4.0, display actual Delta E value, closest achievable color swatch, and 3 alternative approaches with clear labels
+- **Image Processing**: For uploaded images, require user to click specific pixel coordinates; display crosshair cursor and color preview before confirming selection
+- **Invalid Input**: For invalid hex codes, display real-time validation with format examples (#FF5733); for extreme color values outside printable gamut, show warning with nearest printable equivalent
+- **Insufficient Volume**: When recommended ratios exceed available paint inventory, scale down proportionally and display adjusted total volume with warning message
 
 ## Requirements *(mandatory)*
 
@@ -67,14 +67,14 @@ Artists and paint mixing professionals need to accurately mix physical paints to
 - **FR-002**: System MUST accept target color input via hex code entry
 - **FR-003**: System MUST accept target color input via interactive color picker
 - **FR-004**: System MUST accept target color input via image upload with color selection capability
-- **FR-005**: System MUST calculate mixing ratios in milliliters that produce the closest possible match to target color using available predefined paints, and when exact matches are impossible, provide closest achievable color with accuracy rating plus multiple alternative mixing approaches
+- **FR-005**: System MUST calculate mixing ratios in milliliters that produce the closest possible match to target color using available predefined paints, and when exact matches are impossible, provide closest achievable color with accuracy rating plus up to 3 alternative mixing approaches ranked by: (1) cost optimization (fewer expensive pigments), (2) simplicity (fewer total paints), and (3) accuracy optimization (best Delta E even if more complex)
 - **FR-006**: System MUST accept user input of specific milliliter amounts for each predefined paint
 - **FR-007**: System MUST predict and display the resulting color when given specific mixing ratios
 - **FR-008**: System MUST allow users to save mixing sessions with custom labels for future reference
 - **FR-009**: System MUST timestamp all saved mixing sessions automatically
 - **FR-010**: System MUST allow users to recall and view previously saved mixing sessions
 - **FR-011**: System MUST display color accuracy and achieve commercial printing standard with Delta E ≤ 4.0 (barely perceptible difference) between target and achievable colors
-- **FR-012**: System MUST handle oil paint mixing behavior including complex color interactions, varying opacity levels, and paint-specific properties such as pigment density and transparency characteristics
+- **FR-012**: System MUST handle oil paint mixing behavior using Kubelka-Munk theory with the following measurable properties: opacity (0-1 scale where 0=transparent, 1=opaque), tinting strength (0-1 relative mixing power), pigment density (grams per milliliter), and absorption/scattering coefficients (K/S ratios) for accurate subtractive color mixing calculations
 - **FR-013**: System MUST validate input ranges with minimum 100ml and maximum 1000ml per color in mixing ratios, and accept standard hex code formats (#RRGGBB and #RGB)
 - **FR-014**: System MUST persist saved sessions in integrated cloud storage, enabling cross-device access and data synchronization
 

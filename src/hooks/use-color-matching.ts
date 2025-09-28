@@ -1,0 +1,112 @@
+import { useState, useCallback } from 'react'
+import type { ColorValue, MixingFormula, ColorMatchRequest, ColorMatchResponse } from '@/types/types'
+
+interface UseColorMatchingState {
+  isCalculating: boolean
+  calculatedColor: ColorValue | null
+  formula: MixingFormula | null
+  deltaE: number | null
+  error: string | null
+  lastRequest: ColorMatchRequest | null
+}
+
+interface UseColorMatchingResult extends UseColorMatchingState {
+  calculateColorMatch: (targetColor: ColorValue, options?: Partial<ColorMatchRequest>) => Promise<void>
+  reset: () => void
+  retry: () => Promise<void>
+}
+
+const defaultOptions: Omit<ColorMatchRequest, 'target_color'> = {
+  max_paints: 5,
+  volume_ml: 50,
+  tolerance: 0.1,
+}
+
+export const useColorMatching = (): UseColorMatchingResult => {
+  const [state, setState] = useState<UseColorMatchingState>({
+    isCalculating: false,
+    calculatedColor: null,
+    formula: null,
+    deltaE: null,
+    error: null,
+    lastRequest: null,
+  })
+
+  const calculateColorMatch = useCallback(async (
+    targetColor: ColorValue,
+    options: Partial<ColorMatchRequest> = {}
+  ) => {
+    const request: ColorMatchRequest = {
+      target_color: targetColor,
+      ...defaultOptions,
+      ...options,
+    }
+
+    setState(prev => ({
+      ...prev,
+      isCalculating: true,
+      error: null,
+      lastRequest: request,
+    }))
+
+    try {
+      const response = await fetch('/api/color-match', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to calculate color match')
+      }
+
+      const data: ColorMatchResponse = await response.json()
+
+      setState(prev => ({
+        ...prev,
+        isCalculating: false,
+        calculatedColor: data.calculated_color,
+        formula: data.formula,
+        deltaE: data.delta_e,
+        error: null,
+      }))
+    } catch (err) {
+      setState(prev => ({
+        ...prev,
+        isCalculating: false,
+        error: err instanceof Error ? err.message : 'Failed to calculate color match',
+      }))
+    }
+  }, [])
+
+  const retry = useCallback(async () => {
+    if (state.lastRequest) {
+      await calculateColorMatch(state.lastRequest.target_color, {
+        max_paints: state.lastRequest.max_paints,
+        volume_ml: state.lastRequest.volume_ml,
+        tolerance: state.lastRequest.tolerance,
+      })
+    }
+  }, [state.lastRequest, calculateColorMatch])
+
+  const reset = useCallback(() => {
+    setState({
+      isCalculating: false,
+      calculatedColor: null,
+      formula: null,
+      deltaE: null,
+      error: null,
+      lastRequest: null,
+    })
+  }, [])
+
+  return {
+    ...state,
+    calculateColorMatch,
+    retry,
+    reset,
+  }
+}

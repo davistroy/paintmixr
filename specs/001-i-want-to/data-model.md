@@ -28,6 +28,10 @@ interface PredefinedPaint {
   density: number;               // Paint density (g/ml) for volume calculations
   cost_per_ml: number;          // Optional cost tracking
 
+  // Mixing optimization metadata
+  mixing_complexity: number;     // 1-5 scale for UI sorting by simplicity
+  cost_tier: 'budget' | 'standard' | 'premium';  // For cost optimization
+
   // Metadata
   created_at: timestamp;
   updated_at: timestamp;
@@ -40,6 +44,8 @@ interface PredefinedPaint {
 - `lab_a`, `lab_b` must be -128 to 127
 - `opacity`, `tinting_strength` must be 0-1
 - `density` must be > 0
+- `mixing_complexity` must be 1-5 (integer)
+- `cost_tier` must be one of: 'budget', 'standard', 'premium'
 - `name` must be non-empty and unique per brand
 
 ### MixingSession
@@ -278,6 +284,8 @@ export const PredefinedPaintSchema = z.object({
   tinting_strength: z.number().min(0).max(1),
   density: z.number().positive(),
   cost_per_ml: z.number().nonnegative().optional(),
+  mixing_complexity: z.number().int().min(1).max(5),
+  cost_tier: z.enum(['budget', 'standard', 'premium']),
 });
 
 export const MixingSessionCreateSchema = z.object({
