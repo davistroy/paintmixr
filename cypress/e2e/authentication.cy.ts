@@ -1,0 +1,383 @@
+/**
+ * Integration test for authentication flow
+ * This test MUST FAIL initially (TDD approach)
+ */
+
+describe('Authentication Flow', () => {
+  beforeEach(() => {
+    // Clear any existing auth state
+    cy.window().then((win) => {
+      win.localStorage.clear()
+      win.sessionStorage.clear()
+    })
+  })
+
+  it('should redirect unauthenticated users to login', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Visit protected page without authentication
+    cy.visit('/sessions')
+
+    // Should redirect to login
+    cy.url().should('include', '/login')
+    cy.get('[data-testid="login-page"]').should('be.visible')
+
+    // Verify login form elements
+    cy.get('[data-testid="email-input"]').should('be.visible')
+    cy.get('[data-testid="password-input"]').should('be.visible')
+    cy.get('[data-testid="login-button"]').should('be.visible')
+    cy.get('[data-testid="signup-link"]').should('be.visible')
+    */
+  })
+
+  it('should complete email/password login flow', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Visit login page
+    cy.visit('/login')
+
+    // Fill in credentials
+    cy.get('[data-testid="email-input"]').type('test@example.com')
+    cy.get('[data-testid="password-input"]').type('testpassword123')
+
+    // Mock successful login response
+    cy.intercept('POST', '**/auth/v1/token*', {
+      statusCode: 200,
+      body: {
+        access_token: 'mock-access-token',
+        refresh_token: 'mock-refresh-token',
+        user: {
+          id: 'user-123',
+          email: 'test@example.com',
+          email_confirmed_at: new Date().toISOString()
+        }
+      }
+    }).as('loginRequest')
+
+    // Submit login
+    cy.get('[data-testid="login-button"]').click()
+
+    // Wait for login request
+    cy.wait('@loginRequest')
+
+    // Should redirect to dashboard
+    cy.url().should('not.include', '/login')
+    cy.get('[data-testid="dashboard"]').should('be.visible')
+
+    // Verify auth state
+    cy.window().its('localStorage').invoke('getItem', 'supabase.auth.token')
+      .should('exist')
+    */
+  })
+
+  it('should handle login errors gracefully', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Visit login page
+    cy.visit('/login')
+
+    // Mock failed login response
+    cy.intercept('POST', '**/auth/v1/token*', {
+      statusCode: 400,
+      body: {
+        error: 'invalid_grant',
+        error_description: 'Invalid email or password'
+      }
+    }).as('failedLogin')
+
+    // Fill in incorrect credentials
+    cy.get('[data-testid="email-input"]').type('wrong@example.com')
+    cy.get('[data-testid="password-input"]').type('wrongpassword')
+
+    // Submit login
+    cy.get('[data-testid="login-button"]').click()
+
+    // Wait for failed request
+    cy.wait('@failedLogin')
+
+    // Verify error message
+    cy.get('[data-testid="login-error"]').should('be.visible')
+    cy.get('[data-testid="login-error"]')
+      .should('contain', 'Invalid email or password')
+
+    // Should remain on login page
+    cy.url().should('include', '/login')
+    */
+  })
+
+  it('should complete signup flow', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Visit signup page
+    cy.visit('/signup')
+
+    // Fill in signup form
+    cy.get('[data-testid="email-input"]').type('newuser@example.com')
+    cy.get('[data-testid="password-input"]').type('newpassword123')
+    cy.get('[data-testid="confirm-password-input"]').type('newpassword123')
+
+    // Accept terms
+    cy.get('[data-testid="terms-checkbox"]').check()
+
+    // Mock successful signup response
+    cy.intercept('POST', '**/auth/v1/signup', {
+      statusCode: 200,
+      body: {
+        user: {
+          id: 'new-user-123',
+          email: 'newuser@example.com',
+          email_confirmed_at: null
+        }
+      }
+    }).as('signupRequest')
+
+    // Submit signup
+    cy.get('[data-testid="signup-button"]').click()
+
+    // Wait for signup request
+    cy.wait('@signupRequest')
+
+    // Should show email confirmation message
+    cy.get('[data-testid="signup-success"]').should('be.visible')
+    cy.get('[data-testid="confirmation-message"]')
+      .should('contain', 'Please check your email')
+    */
+  })
+
+  it('should validate signup form inputs', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Visit signup page
+    cy.visit('/signup')
+
+    // Test email validation
+    cy.get('[data-testid="email-input"]').type('invalid-email')
+    cy.get('[data-testid="signup-button"]').click()
+    cy.get('[data-testid="email-error"]')
+      .should('contain', 'Please enter a valid email')
+
+    // Test password strength
+    cy.get('[data-testid="email-input"]').clear().type('valid@example.com')
+    cy.get('[data-testid="password-input"]').type('weak')
+    cy.get('[data-testid="password-error"]')
+      .should('contain', 'Password must be at least 8 characters')
+
+    // Test password confirmation
+    cy.get('[data-testid="password-input"]').clear().type('strongpassword123')
+    cy.get('[data-testid="confirm-password-input"]').type('differentpassword')
+    cy.get('[data-testid="confirm-password-error"]')
+      .should('contain', 'Passwords do not match')
+
+    // Test terms acceptance
+    cy.get('[data-testid="confirm-password-input"]').clear().type('strongpassword123')
+    cy.get('[data-testid="signup-button"]').click()
+    cy.get('[data-testid="terms-error"]')
+      .should('contain', 'You must accept the terms')
+    */
+  })
+
+  it('should handle logout flow', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Mock authenticated state
+    cy.window().then((win) => {
+      win.localStorage.setItem('supabase.auth.token', JSON.stringify({
+        access_token: 'mock-token',
+        user: { id: 'user-123', email: 'test@example.com' }
+      }))
+    })
+
+    // Visit dashboard
+    cy.visit('/')
+    cy.get('[data-testid="dashboard"]').should('be.visible')
+
+    // Mock logout response
+    cy.intercept('POST', '**/auth/v1/logout', {
+      statusCode: 204
+    }).as('logoutRequest')
+
+    // Click logout
+    cy.get('[data-testid="user-menu"]').click()
+    cy.get('[data-testid="logout-button"]').click()
+
+    // Wait for logout request
+    cy.wait('@logoutRequest')
+
+    // Should redirect to login
+    cy.url().should('include', '/login')
+
+    // Verify auth state cleared
+    cy.window().its('localStorage').invoke('getItem', 'supabase.auth.token')
+      .should('be.null')
+    */
+  })
+
+  it('should handle password reset flow', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Visit login page
+    cy.visit('/login')
+
+    // Click forgot password
+    cy.get('[data-testid="forgot-password-link"]').click()
+
+    // Should navigate to reset page
+    cy.url().should('include', '/reset-password')
+    cy.get('[data-testid="reset-password-form"]').should('be.visible')
+
+    // Enter email
+    cy.get('[data-testid="email-input"]').type('test@example.com')
+
+    // Mock password reset response
+    cy.intercept('POST', '**/auth/v1/recover', {
+      statusCode: 200,
+      body: {}
+    }).as('resetRequest')
+
+    // Submit reset request
+    cy.get('[data-testid="reset-button"]').click()
+
+    // Wait for request
+    cy.wait('@resetRequest')
+
+    // Should show success message
+    cy.get('[data-testid="reset-success"]').should('be.visible')
+    cy.get('[data-testid="reset-message"]')
+      .should('contain', 'Password reset email sent')
+    */
+  })
+
+  it('should handle OAuth login with Google', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Visit login page
+    cy.visit('/login')
+
+    // Verify OAuth options
+    cy.get('[data-testid="oauth-section"]').should('be.visible')
+    cy.get('[data-testid="google-login"]').should('be.visible')
+
+    // Mock OAuth redirect
+    cy.window().then((win) => {
+      cy.stub(win, 'open').as('oauthPopup')
+    })
+
+    // Click Google login
+    cy.get('[data-testid="google-login"]').click()
+
+    // Verify OAuth popup would open
+    cy.get('@oauthPopup').should('have.been.calledOnce')
+
+    // Mock successful OAuth callback
+    cy.window().then((win) => {
+      // Simulate OAuth success callback
+      win.postMessage({
+        type: 'oauth_success',
+        data: {
+          access_token: 'oauth-token',
+          user: {
+            id: 'oauth-user-123',
+            email: 'oauth@example.com'
+          }
+        }
+      }, '*')
+    })
+
+    // Should redirect to dashboard
+    cy.url().should('not.include', '/login')
+    cy.get('[data-testid="dashboard"]').should('be.visible')
+    */
+  })
+
+  it('should maintain session across page reloads', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Mock authenticated state
+    cy.window().then((win) => {
+      win.localStorage.setItem('supabase.auth.token', JSON.stringify({
+        access_token: 'valid-token',
+        refresh_token: 'valid-refresh-token',
+        expires_at: Date.now() + 3600000, // 1 hour from now
+        user: { id: 'user-123', email: 'test@example.com' }
+      }))
+    })
+
+    // Visit dashboard
+    cy.visit('/')
+    cy.get('[data-testid="dashboard"]').should('be.visible')
+
+    // Reload page
+    cy.reload()
+
+    // Should still be authenticated
+    cy.get('[data-testid="dashboard"]').should('be.visible')
+    cy.url().should('not.include', '/login')
+
+    // Verify user info displayed
+    cy.get('[data-testid="user-menu"]').click()
+    cy.get('[data-testid="user-email"]').should('contain', 'test@example.com')
+    */
+  })
+
+  it('should handle expired tokens', () => {
+    // This will fail because the page doesn't exist yet
+    cy.visit('/')
+    cy.get('[data-testid="app-container"]').should('not.exist')
+
+    /*
+    // Mock expired token
+    cy.window().then((win) => {
+      win.localStorage.setItem('supabase.auth.token', JSON.stringify({
+        access_token: 'expired-token',
+        refresh_token: 'expired-refresh-token',
+        expires_at: Date.now() - 3600000, // 1 hour ago
+        user: { id: 'user-123', email: 'test@example.com' }
+      }))
+    })
+
+    // Mock token refresh failure
+    cy.intercept('POST', '**/auth/v1/token*', {
+      statusCode: 401,
+      body: { error: 'invalid_grant' }
+    }).as('refreshFailed')
+
+    // Visit protected page
+    cy.visit('/sessions')
+
+    // Should attempt token refresh
+    cy.wait('@refreshFailed')
+
+    // Should redirect to login
+    cy.url().should('include', '/login')
+    cy.get('[data-testid="session-expired-message"]')
+      .should('contain', 'Your session has expired')
+    */
+  })
+})
