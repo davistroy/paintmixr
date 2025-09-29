@@ -268,7 +268,7 @@ class PerformanceMonitor {
       entries.forEach(entry => {
         this.addMetric({
           name: 'first_input_delay',
-          value: entry.processingStart - entry.startTime,
+          value: (entry as any).processingStart - entry.startTime,
           timestamp: Date.now(),
           metadata: { type: 'web_vital' },
         })

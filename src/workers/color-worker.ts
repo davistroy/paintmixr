@@ -1,8 +1,19 @@
-import { convertRgbToLab, convertLabToRgb } from '../lib/color-math/lab-conversions'
-import { calculateDeltaE } from '../lib/color-math/delta-e'
-import { findBestColorMatch } from '../lib/paint-mixing/color-matching'
-import { predictColorFromRatios } from '../lib/paint-mixing/kubelka-munk'
+// TODO: Fix these imports - modules don't exist yet
+// import { convertRgbToLab, convertLabToRgb } from '../lib/color-math/lab-conversions'
+// import { calculateDeltaE } from '../lib/color-math/delta-e'
+// import { findBestColorMatch } from '../lib/paint-mixing/color-matching'
+// import { predictColorFromRatios } from '../lib/paint-mixing/kubelka-munk'
+import { rgbToLab, labToRgb, deltaE2000 } from '../lib/color-science'
 import type { ColorValue, MixingFormula, PaintRatio } from '../types/types'
+
+// TODO: Implement these missing functions
+function findBestColorMatch(params: any): any {
+  return { success: false, error: 'Not implemented yet' }
+}
+
+function predictColorFromRatios(params: any): any {
+  return { success: false, error: 'Not implemented yet' }
+}
 
 interface ColorWorkerMessage {
   id: string
@@ -173,7 +184,7 @@ async function handleRatioPredict(payload: RatioPredictPayload) {
 async function handleDeltaE(payload: DeltaEPayload) {
   const { color1, color2 } = payload
 
-  const deltaE = calculateDeltaE(
+  const deltaE = deltaE2000(
     { l: color1.lab.l, a: color1.lab.a, b: color1.lab.b },
     { l: color2.lab.l, a: color2.lab.a, b: color2.lab.b }
   )
@@ -186,11 +197,11 @@ async function handleColorConvert(payload: ColorConvertPayload) {
 
   if (from === 'rgb' && to === 'lab') {
     const rgb = color as { r: number; g: number; b: number }
-    const lab = convertRgbToLab(rgb.r, rgb.g, rgb.b)
+    const lab = rgbToLab(rgb)
     return { lab }
   } else if (from === 'lab' && to === 'rgb') {
     const lab = color as { l: number; a: number; b: number }
-    const rgb = convertLabToRgb(lab.l, lab.a, lab.b)
+    const rgb = labToRgb(lab)
     return { rgb }
   } else {
     throw new Error(`Unsupported color conversion: ${from} to ${to}`)

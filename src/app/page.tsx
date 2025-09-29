@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import type { ColorValue, MixingFormula, CreateSessionRequest } from '@/types/types'
+import { getUserPaintOptions } from '@/lib/user-paints'
 import HexInput from '@/components/color-input/HexInput'
 import ColorPicker from '@/components/color-input/ColorPicker'
 import ImageUpload from '@/components/color-input/ImageUpload'
@@ -13,6 +14,11 @@ import ColorValueComponent from '@/components/color-display/ColorValue'
 type InputMethod = 'color_picker' | 'hex_input' | 'image_upload'
 type AppMode = 'color_matching' | 'ratio_prediction'
 
+interface PaintRatioInput {
+  paint_id: string
+  volume_ml: number
+}
+
 const PaintMixr: React.FC = () => {
   const [appMode, setAppMode] = useState<AppMode>('color_matching')
   const [inputMethod, setInputMethod] = useState<InputMethod>('color_picker')
@@ -23,6 +29,12 @@ const PaintMixr: React.FC = () => {
   const [isCalculating, setIsCalculating] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [error, setError] = useState<string>('')
+
+  // State for ratio prediction mode
+  const [paintRatios, setPaintRatios] = useState<PaintRatioInput[]>([
+    { paint_id: '', volume_ml: 0 },
+    { paint_id: '', volume_ml: 0 },
+  ])
 
   const handleColorInput = (color: ColorValue) => {
     setTargetColor(color)
@@ -44,8 +56,8 @@ const PaintMixr: React.FC = () => {
         },
         body: JSON.stringify({
           target_color: color,
-          max_paints: 5,
-          volume_ml: 50,
+          total_volume_ml: 200,
+          optimization_preference: 'accuracy',
         }),
       })
 
@@ -62,6 +74,68 @@ const PaintMixr: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Failed to calculate color match')
     } finally {
       setIsCalculating(false)
+    }
+  }
+
+  const calculateRatioPrediction = async () => {
+    setIsCalculating(true)
+    setError('')
+
+    try {
+      // Filter out empty ratios and validate
+      const validRatios = paintRatios.filter(ratio => ratio.paint_id && ratio.volume_ml > 0)
+
+      if (validRatios.length === 0) {
+        throw new Error('Please select at least one paint with a volume greater than 0')
+      }
+
+      const response = await fetch('/api/ratio-predict', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paint_ratios: validRatios,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to predict color')
+      }
+
+      const data = await response.json()
+      setCalculatedColor(data.resulting_color)
+      setFormula(data.formula)
+      setDeltaE(null) // No delta E for ratio prediction
+      setTargetColor(data.resulting_color) // Set as target for saving
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to predict color')
+    } finally {
+      setIsCalculating(false)
+    }
+  }
+
+  const updatePaintRatio = (index: number, field: 'paint_id' | 'volume_ml', value: string | number) => {
+    const newRatios = [...paintRatios]
+    if (field === 'paint_id') {
+      newRatios[index].paint_id = value as string
+    } else {
+      newRatios[index].volume_ml = Math.max(0, Number(value))
+    }
+    setPaintRatios(newRatios)
+  }
+
+  const addPaintRatio = () => {
+    if (paintRatios.length < 5) {
+      setPaintRatios([...paintRatios, { paint_id: '', volume_ml: 0 }])
+    }
+  }
+
+  const removePaintRatio = (index: number) => {
+    if (paintRatios.length > 1) {
+      const newRatios = paintRatios.filter((_, i) => i !== index)
+      setPaintRatios(newRatios)
     }
   }
 
@@ -94,6 +168,10 @@ const PaintMixr: React.FC = () => {
     setDeltaE(null)
     setError('')
     setShowSaveForm(false)
+    setPaintRatios([
+      { paint_id: '', volume_ml: 0 },
+      { paint_id: '', volume_ml: 0 },
+    ])
   }
 
   const canSave = targetColor && (appMode === 'color_matching' ? (formula && calculatedColor && deltaE !== null) : true)
@@ -161,78 +239,173 @@ const PaintMixr: React.FC = () => {
         </div>
 
         {/* Input Method Selection */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Select Color Input Method</h2>
-          <div className="flex flex-wrap gap-3 mb-6">
-            <button
-              onClick={() => setInputMethod('color_picker')}
-              className={`px-4 py-2 rounded-lg border transition-colors ${
-                inputMethod === 'color_picker'
-                  ? 'border-blue-500 bg-blue-50 text-blue-800'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Color Picker
-            </button>
-            <button
-              onClick={() => setInputMethod('hex_input')}
-              className={`px-4 py-2 rounded-lg border transition-colors ${
-                inputMethod === 'hex_input'
-                  ? 'border-blue-500 bg-blue-50 text-blue-800'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Hex Code
-            </button>
-            <button
-              onClick={() => setInputMethod('image_upload')}
-              className={`px-4 py-2 rounded-lg border transition-colors ${
-                inputMethod === 'image_upload'
-                  ? 'border-blue-500 bg-blue-50 text-blue-800'
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Image Upload
-            </button>
-          </div>
-
-          {/* Color Input Components */}
-          <div className="space-y-4">
-            {inputMethod === 'color_picker' && (
-              <ColorPicker
-                onColorChange={handleColorInput}
-                disabled={isCalculating}
-              />
-            )}
-
-            {inputMethod === 'hex_input' && (
-              <HexInput
-                onColorChange={handleColorInput}
-                disabled={isCalculating}
-              />
-            )}
-
-            {inputMethod === 'image_upload' && (
-              <ImageUpload
-                onColorExtracted={handleColorInput}
-                disabled={isCalculating}
-              />
-            )}
-          </div>
-
-          {/* Selected Color Display */}
-          {targetColor && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Selected Target Color:</h3>
-              <ColorValueComponent
-                color={targetColor}
-                size="lg"
-                showDetails={true}
-                className="justify-start"
-              />
+        {appMode === 'color_matching' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Select Color Input Method</h2>
+            <div className="flex flex-wrap gap-3 mb-6">
+              <button
+                onClick={() => setInputMethod('color_picker')}
+                className={`px-4 py-2 rounded-lg border transition-colors ${
+                  inputMethod === 'color_picker'
+                    ? 'border-blue-500 bg-blue-50 text-blue-800'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Color Picker
+              </button>
+              <button
+                onClick={() => setInputMethod('hex_input')}
+                className={`px-4 py-2 rounded-lg border transition-colors ${
+                  inputMethod === 'hex_input'
+                    ? 'border-blue-500 bg-blue-50 text-blue-800'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Hex Code
+              </button>
+              <button
+                onClick={() => setInputMethod('image_upload')}
+                className={`px-4 py-2 rounded-lg border transition-colors ${
+                  inputMethod === 'image_upload'
+                    ? 'border-blue-500 bg-blue-50 text-blue-800'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Image Upload
+              </button>
             </div>
-          )}
-        </div>
+
+            {/* Color Input Components */}
+            <div className="space-y-4">
+              {inputMethod === 'color_picker' && (
+                <ColorPicker
+                  onChange={handleColorInput}
+                  disabled={isCalculating}
+                />
+              )}
+
+              {inputMethod === 'hex_input' && (
+                <HexInput
+                  onChange={handleColorInput}
+                  disabled={isCalculating}
+                />
+              )}
+
+              {inputMethod === 'image_upload' && (
+                <ImageUpload
+                  onColorExtracted={handleColorInput}
+                  disabled={isCalculating}
+                />
+              )}
+            </div>
+
+            {/* Selected Color Display */}
+            {targetColor && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Selected Target Color:</h3>
+                <ColorValueComponent
+                  color={targetColor}
+                  size="lg"
+                  showDetails={true}
+                  className="justify-start"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Ratio Prediction Mode */}
+        {appMode === 'ratio_prediction' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Enter Paint Ratios</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Specify the paint types and their ratios to predict the resulting mixed color.
+            </p>
+
+            {/* Paint Ratio Inputs */}
+            <div className="space-y-4">
+              {paintRatios.map((ratio, index) => (
+                <div key={index} className="flex gap-4 items-end">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Paint {index + 1} {index >= 2 ? '(Optional)' : ''}
+                    </label>
+                    <select
+                      value={ratio.paint_id}
+                      onChange={(e) => updatePaintRatio(index, 'paint_id', e.target.value)}
+                      disabled={isCalculating}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                    >
+                      <option value="">Select Paint</option>
+                      {getUserPaintOptions().map(paint => (
+                        <option key={paint.value} value={paint.value}>
+                          {paint.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Volume (ml)
+                    </label>
+                    <input
+                      type="number"
+                      value={ratio.volume_ml || ''}
+                      onChange={(e) => updatePaintRatio(index, 'volume_ml', parseFloat(e.target.value) || 0)}
+                      disabled={isCalculating}
+                      placeholder="Volume (ml)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                      min="0.1"
+                      step="0.1"
+                    />
+                  </div>
+                  {paintRatios.length > 2 && (
+                    <button
+                      onClick={() => removePaintRatio(index)}
+                      disabled={isCalculating}
+                      className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      title="Remove paint"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {/* Add Paint Button */}
+              {paintRatios.length < 5 && (
+                <div className="flex justify-center">
+                  <button
+                    onClick={addPaintRatio}
+                    disabled={isCalculating}
+                    className="px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Another Paint
+                  </button>
+                </div>
+              )}
+
+              {/* Predict Color Button */}
+              <div className="flex justify-center pt-4">
+                <button
+                  onClick={calculateRatioPrediction}
+                  disabled={isCalculating}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5H9a2 2 0 00-2 2v12a4 4 0 004 4h6a2 2 0 002-2V7a2 2 0 00-2-2z" />
+                  </svg>
+                  Predict Resulting Color
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (

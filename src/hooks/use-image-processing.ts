@@ -66,9 +66,10 @@ export const useImageProcessing = (): UseImageProcessingResult => {
     coordinates?: { x: number; y: number }
   ): Promise<ColorValue> => {
     const request: ImageColorExtractionRequest = {
-      image_data: imageData,
-      extraction_method: method,
-      coordinates,
+      image: new File([imageData], 'image.jpg', { type: 'image/jpeg' }),
+      x: coordinates?.x || 0,
+      y: coordinates?.y || 0,
+      extraction_type: method,
     }
 
     const response = await fetch('/api/image/extract-color', {

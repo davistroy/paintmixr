@@ -7,19 +7,18 @@ interface UseColorMatchingState {
   formula: MixingFormula | null
   deltaE: number | null
   error: string | null
-  lastRequest: ColorMatchRequest | null
+  lastRequest: { target_color: ColorValue; total_volume_ml: number; optimization_preference: 'accuracy' | 'cost' | 'simplicity' } | null
 }
 
 interface UseColorMatchingResult extends UseColorMatchingState {
-  calculateColorMatch: (targetColor: ColorValue, options?: Partial<ColorMatchRequest>) => Promise<void>
+  calculateColorMatch: (targetColor: ColorValue, options?: { total_volume_ml?: number; optimization_preference?: 'accuracy' | 'cost' | 'simplicity' }) => Promise<void>
   reset: () => void
   retry: () => Promise<void>
 }
 
-const defaultOptions: Omit<ColorMatchRequest, 'target_color'> = {
-  max_paints: 5,
-  volume_ml: 50,
-  tolerance: 0.1,
+const defaultOptions = {
+  total_volume_ml: 200,
+  optimization_preference: 'accuracy' as const,
 }
 
 export const useColorMatching = (): UseColorMatchingResult => {
@@ -34,9 +33,9 @@ export const useColorMatching = (): UseColorMatchingResult => {
 
   const calculateColorMatch = useCallback(async (
     targetColor: ColorValue,
-    options: Partial<ColorMatchRequest> = {}
+    options: { total_volume_ml?: number; optimization_preference?: 'accuracy' | 'cost' | 'simplicity' } = {}
   ) => {
-    const request: ColorMatchRequest = {
+    const request = {
       target_color: targetColor,
       ...defaultOptions,
       ...options,
@@ -85,9 +84,8 @@ export const useColorMatching = (): UseColorMatchingResult => {
   const retry = useCallback(async () => {
     if (state.lastRequest) {
       await calculateColorMatch(state.lastRequest.target_color, {
-        max_paints: state.lastRequest.max_paints,
-        volume_ml: state.lastRequest.volume_ml,
-        tolerance: state.lastRequest.tolerance,
+        total_volume_ml: state.lastRequest.total_volume_ml,
+        optimization_preference: state.lastRequest.optimization_preference,
       })
     }
   }, [state.lastRequest, calculateColorMatch])

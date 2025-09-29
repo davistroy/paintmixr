@@ -6,7 +6,9 @@ import ColorValueComponent from '@/components/color-display/ColorValue'
 
 interface SessionCardProps {
   session: MixingSession | MixingSessionDetail
-  onFavoriteToggle?: (sessionId: string) => void
+  onClick?: (session: MixingSession) => void
+  onFavorite?: () => Promise<void>
+  onFavoriteToggle?: (sessionId: string, isFavorite: boolean) => void
   onDelete?: (sessionId: string) => void
   onEdit?: (sessionId: string) => void
   onView?: (sessionId: string) => void
@@ -17,6 +19,8 @@ interface SessionCardProps {
 
 const SessionCard: React.FC<SessionCardProps> = ({
   session,
+  onClick,
+  onFavorite,
   onFavoriteToggle,
   onDelete,
   onEdit,
@@ -46,7 +50,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
     return type === 'color_matching' ? 'Color Match' : 'Ratio Prediction'
   }
 
-  const getSessionTypeIcon = (type: string): JSX.Element => {
+  const getSessionTypeIcon = (type: string): React.JSX.Element => {
     if (type === 'color_matching') {
       return (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,7 +111,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             <div className="flex items-center gap-2">
               {/* Favorite */}
               <button
-                onClick={() => onFavoriteToggle?.(session.id)}
+                onClick={() => onFavoriteToggle?.(session.id, !session.is_favorite)}
                 className={`p-1 rounded transition-colors ${
                   session.is_favorite
                     ? 'text-yellow-500 hover:text-yellow-600'
@@ -200,7 +204,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                     </button>
                     <button
                       onClick={() => {
-                        onFavoriteToggle?.(session.id)
+                        onFavoriteToggle?.(session.id, !session.is_favorite)
                         setIsMenuOpen(false)
                       }}
                       className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"

@@ -273,7 +273,7 @@ export function checkRateLimit(
 // Cleanup old rate limit records
 setInterval(() => {
   const now = Date.now()
-  for (const [key, record] of rateLimitMap.entries()) {
+  for (const [key, record] of Array.from(rateLimitMap.entries())) {
     if (now > record.resetTime) {
       rateLimitMap.delete(key)
     }

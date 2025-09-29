@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   keywords: 'paint mixing, color matching, oil painting, color theory, paint calculator, art supplies',
   authors: [{ name: 'PaintMixr' }],
   manifest: '/manifest.json',
+  metadataBase: new URL('http://localhost:3000'),
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -35,17 +36,10 @@ export const metadata: Metadata = {
     description: 'Get accurate paint mixing formulas for any color using professional color science algorithms.',
     images: ['/twitter-image.png'],
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
   robots: {
     index: true,
     follow: true,
   },
-  themeColor: '#1f2937',
   icons: {
     icon: [
       { url: '/icons/icon-32x32.png', sizes: '32x32', type: 'image/png' },
@@ -55,6 +49,14 @@ export const metadata: Metadata = {
       { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
   },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#1f2937',
 }
 
 export default function RootLayout({

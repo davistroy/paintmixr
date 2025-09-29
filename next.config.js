@@ -1,10 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    typedRoutes: true,
-  },
+  // Essential configurations only
   images: {
     domains: ['localhost'],
+  },
+  experimental: {
+    optimizePackageImports: ['react-color', '@supabase/supabase-js'],
   },
 }
 
