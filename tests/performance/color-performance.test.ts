@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals'
-import { findBestColorMatch } from '@/lib/paint-mixing/color-matching'
-import { predictColorFromRatios } from '@/lib/paint-mixing/kubelka-munk'
-import { calculateDeltaE } from '@/lib/color-math/delta-e'
-import { convertRgbToLab, convertLabToRgb } from '@/lib/color-math/lab-conversions'
+import { calculateKubelkaMunkMixing } from '@/lib/kubelka-munk'
+import { calculateDeltaE2000 as calculateDeltaE } from '@/lib/color-science'
+import { rgbToLab as convertRgbToLab, labToRgb as convertLabToRgb } from '@/lib/color-science'
 import { performanceMonitor } from '@/lib/utils/performance'
 import type { ColorValue, PaintData } from '@/types/types'
 
@@ -13,138 +12,138 @@ describe('Color Calculation Performance Tests', () => {
     {
       id: 'titanium-white',
       name: 'Titanium White',
-      ks_coefficients: { k: 0.05, s: 12.0 },
+      k_coefficient: { k: 0.05, s: 12.0 },
       lab_values: { l: 96.5, a: -0.2, b: 1.8 },
     },
     {
       id: 'mars-black',
       name: 'Mars Black',
-      ks_coefficients: { k: 25.0, s: 0.8 },
+      k_coefficient: { k: 25.0, s: 0.8 },
       lab_values: { l: 16.2, a: 0.1, b: -0.3 },
     },
     // Red family
     {
       id: 'cadmium-red-light',
       name: 'Cadmium Red Light',
-      ks_coefficients: { k: 7.8, s: 5.5 },
+      k_coefficient: { k: 7.8, s: 5.5 },
       lab_values: { l: 48.5, a: 70.2, b: 58.3 },
     },
     {
       id: 'cadmium-red-medium',
       name: 'Cadmium Red Medium',
-      ks_coefficients: { k: 8.2, s: 5.1 },
+      k_coefficient: { k: 8.2, s: 5.1 },
       lab_values: { l: 45.2, a: 68.4, b: 54.1 },
     },
     {
       id: 'cadmium-red-deep',
       name: 'Cadmium Red Deep',
-      ks_coefficients: { k: 8.8, s: 4.8 },
+      k_coefficient: { k: 8.8, s: 4.8 },
       lab_values: { l: 42.1, a: 65.7, b: 49.2 },
     },
     {
       id: 'alizarin-crimson',
       name: 'Alizarin Crimson',
-      ks_coefficients: { k: 9.8, s: 4.5 },
+      k_coefficient: { k: 9.8, s: 4.5 },
       lab_values: { l: 38.6, a: 58.2, b: 22.1 },
     },
     {
       id: 'quinacridone-rose',
       name: 'Quinacridone Rose',
-      ks_coefficients: { k: 6.2, s: 6.8 },
+      k_coefficient: { k: 6.2, s: 6.8 },
       lab_values: { l: 55.3, a: 62.1, b: 15.7 },
     },
     // Yellow family
     {
       id: 'cadmium-yellow-light',
       name: 'Cadmium Yellow Light',
-      ks_coefficients: { k: 1.8, s: 9.2 },
+      k_coefficient: { k: 1.8, s: 9.2 },
       lab_values: { l: 82.1, a: 8.3, b: 82.5 },
     },
     {
       id: 'cadmium-yellow-medium',
       name: 'Cadmium Yellow Medium',
-      ks_coefficients: { k: 2.1, s: 8.7 },
+      k_coefficient: { k: 2.1, s: 8.7 },
       lab_values: { l: 78.3, a: 12.5, b: 78.2 },
     },
     {
       id: 'cadmium-yellow-deep',
       name: 'Cadmium Yellow Deep',
-      ks_coefficients: { k: 2.6, s: 8.1 },
+      k_coefficient: { k: 2.6, s: 8.1 },
       lab_values: { l: 74.8, a: 18.2, b: 73.1 },
     },
     {
       id: 'yellow-ochre',
       name: 'Yellow Ochre',
-      ks_coefficients: { k: 4.2, s: 6.8 },
+      k_coefficient: { k: 4.2, s: 6.8 },
       lab_values: { l: 65.2, a: 8.4, b: 45.7 },
     },
     {
       id: 'naples-yellow',
       name: 'Naples Yellow',
-      ks_coefficients: { k: 3.1, s: 7.5 },
+      k_coefficient: { k: 3.1, s: 7.5 },
       lab_values: { l: 71.8, a: 15.6, b: 52.3 },
     },
     // Blue family
     {
       id: 'ultramarine-blue',
       name: 'Ultramarine Blue',
-      ks_coefficients: { k: 12.5, s: 3.2 },
+      k_coefficient: { k: 12.5, s: 3.2 },
       lab_values: { l: 29.8, a: 15.2, b: -58.7 },
     },
     {
       id: 'prussian-blue',
       name: 'Prussian Blue',
-      ks_coefficients: { k: 18.2, s: 2.1 },
+      k_coefficient: { k: 18.2, s: 2.1 },
       lab_values: { l: 22.5, a: 8.3, b: -45.2 },
     },
     {
       id: 'cerulean-blue',
       name: 'Cerulean Blue',
-      ks_coefficients: { k: 8.5, s: 4.8 },
+      k_coefficient: { k: 8.5, s: 4.8 },
       lab_values: { l: 52.3, a: -12.8, b: -35.7 },
     },
     {
       id: 'phthalo-blue',
       name: 'Phthalo Blue',
-      ks_coefficients: { k: 15.8, s: 2.8 },
+      k_coefficient: { k: 15.8, s: 2.8 },
       lab_values: { l: 25.1, a: 12.7, b: -52.3 },
     },
     // Earth tones
     {
       id: 'burnt-umber',
       name: 'Burnt Umber',
-      ks_coefficients: { k: 15.8, s: 2.1 },
+      k_coefficient: { k: 15.8, s: 2.1 },
       lab_values: { l: 25.4, a: 12.8, b: 18.9 },
     },
     {
       id: 'raw-umber',
       name: 'Raw Umber',
-      ks_coefficients: { k: 12.3, s: 2.8 },
+      k_coefficient: { k: 12.3, s: 2.8 },
       lab_values: { l: 32.1, a: 8.5, b: 12.3 },
     },
     {
       id: 'burnt-sienna',
       name: 'Burnt Sienna',
-      ks_coefficients: { k: 8.7, s: 3.5 },
+      k_coefficient: { k: 8.7, s: 3.5 },
       lab_values: { l: 38.2, a: 28.5, b: 32.1 },
     },
     {
       id: 'raw-sienna',
       name: 'Raw Sienna',
-      ks_coefficients: { k: 6.5, s: 4.2 },
+      k_coefficient: { k: 6.5, s: 4.2 },
       lab_values: { l: 42.8, a: 18.5, b: 35.2 },
     },
     // Greens
     {
       id: 'viridian',
       name: 'Viridian',
-      ks_coefficients: { k: 11.2, s: 3.8 },
+      k_coefficient: { k: 11.2, s: 3.8 },
       lab_values: { l: 35.7, a: -38.2, b: 18.5 },
     },
     {
       id: 'sap-green',
       name: 'Sap Green',
-      ks_coefficients: { k: 13.5, s: 3.1 },
+      k_coefficient: { k: 13.5, s: 3.1 },
       lab_values: { l: 28.3, a: -25.7, b: 22.8 },
     },
   ]

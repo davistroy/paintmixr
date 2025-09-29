@@ -176,7 +176,7 @@ export class CanvasImageProcessor {
     let dominantColor = ''
     let maxCount = 0
 
-    for (const [color, count] of colorMap) {
+    for (const [color, count] of colorMap.entries()) {
       if (count > maxCount) {
         maxCount = count
         dominantColor = color

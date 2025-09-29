@@ -193,9 +193,13 @@ export async function POST(request: NextRequest) {
 
     // Prepare response
     const response: ImageColorExtractionResponse = {
+      color: extractedColor,
       extracted_color: extractedColor,
-      extraction_method,
-      coordinates: extraction_method === 'point' ? coordinates : undefined,
+      extraction_type: extraction_method,
+      image_dimensions: {
+        width: 800,  // placeholder dimensions
+        height: 600,
+      },
     }
 
     return NextResponse.json(response)

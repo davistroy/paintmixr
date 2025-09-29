@@ -262,7 +262,7 @@ export const db = {
     create: async (session: Database['public']['Tables']['mixing_sessions']['Insert']) => {
       return supabase
         .from('mixing_sessions')
-        .insert(session)
+        .insert(session as any)
         .select()
         .single()
     },
@@ -270,7 +270,7 @@ export const db = {
     update: async (id: string, updates: Database['public']['Tables']['mixing_sessions']['Update']) => {
       return supabase
         .from('mixing_sessions')
-        .update(updates)
+        .update(updates as any)
         .eq('id', id)
         .select()
         .single()
@@ -291,7 +291,7 @@ export const db = {
     create: async (formula: Database['public']['Tables']['mixing_formulas']['Insert']) => {
       return supabase
         .from('mixing_formulas')
-        .insert(formula)
+        .insert(formula as any)
         .select()
         .single()
     },
@@ -311,7 +311,7 @@ export const db = {
     createMany: async (items: Database['public']['Tables']['formula_items']['Insert'][]) => {
       return supabase
         .from('formula_items')
-        .insert(items)
+        .insert(items as any)
         .select()
     },
 

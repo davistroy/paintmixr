@@ -12,6 +12,11 @@ export interface ColorValue {
     a: number; // -128 to 127
     b: number; // -128 to 127
   };
+  rgb?: {
+    r: number; // 0-255
+    g: number; // 0-255
+    b: number; // 0-255
+  };
 }
 
 export interface PaintColor {
@@ -49,9 +54,9 @@ export interface PaintRatio {
 // ==================== Session Types ====================
 
 export type SessionType = 'color_matching' | 'ratio_prediction';
-export type InputMethod = 'hex' | 'picker' | 'image';
+export type InputMethod = 'hex_input' | 'color_picker' | 'image_upload' | 'manual_ratios' | 'hex' | 'picker' | 'image';
 export type OptimizationPreference = 'accuracy' | 'cost' | 'simplicity';
-export type ExtractionType = 'pixel' | 'average' | 'dominant';
+export type ExtractionType = 'pixel' | 'average' | 'dominant' | 'point';
 
 export interface MixingSession {
   id: string;
@@ -78,6 +83,9 @@ export interface ColorMatchRequest {
   target_color: ColorValue;
   total_volume_ml: number; // 100-1000
   optimization_preference?: OptimizationPreference;
+  max_paints?: number;
+  volume_ml?: number;
+  tolerance?: number;
 }
 
 export interface RatioPredictRequest {
@@ -117,6 +125,7 @@ export interface ImageExtractRequest {
 export interface ColorMatchResponse {
   formula: MixingFormula;
   achieved_color: ColorValue;
+  calculated_color: ColorValue;
   delta_e: number;
   alternatives?: Array<{
     formula: MixingFormula;
@@ -155,6 +164,31 @@ export interface ExtractedColorResponse {
     width: number;
     height: number;
   };
+}
+
+export interface ImageColorExtractionResponse {
+  color: ColorValue;
+  extracted_color: ColorValue;
+  extraction_type: ExtractionType;
+  image_dimensions: {
+    width: number;
+    height: number;
+  };
+}
+
+export interface ImageColorExtractionRequest {
+  image: File;
+  x: number;
+  y: number;
+  extraction_type?: ExtractionType;
+}
+
+export interface SessionData extends MixingSessionDetail {
+  // Additional fields for legacy compatibility
+}
+
+export interface PaintData extends PaintColor {
+  // Additional fields for legacy compatibility
 }
 
 export interface ErrorResponse {
@@ -220,10 +254,26 @@ export interface ColorAccuracyIndicatorProps {
 }
 
 export interface SessionCardProps {
-  session: MixingSession;
+  session: MixingSession | SessionData;
   onClick?: (session: MixingSession) => void;
+  onFavorite?: () => Promise<void>;
   onFavoriteToggle?: (sessionId: string, isFavorite: boolean) => void;
   onDelete?: (sessionId: string) => void;
+  compactMode?: boolean;
+  className?: string;
+}
+
+export interface ColorPickerProps {
+  onChange?: (color: ColorValue) => void;
+  onColorChange: (color: ColorValue) => void;
+  disabled: boolean;
+  className?: string;
+}
+
+export interface HexInputProps {
+  onChange?: (color: ColorValue) => void;
+  onColorChange: (color: ColorValue) => void;
+  disabled: boolean;
   className?: string;
 }
 
@@ -406,3 +456,10 @@ export function isMixingFormula(value: any): value is MixingFormula {
     )
   );
 }
+
+// Missing type aliases for API test files
+export type ImageExtractColorRequest = ImageExtractRequest
+export type ImageExtractColorResponse = ExtractedColorResponse
+export type PaintListResponse = PaintColorsResponse
+export type SessionResponse = SessionListResponse
+export type SessionDetailResponse = MixingSessionDetail

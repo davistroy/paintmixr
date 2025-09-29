@@ -19,9 +19,9 @@ import type {
 import { SessionService } from '@/lib/supabase/sessions'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 // Validation schema for session ID
@@ -47,7 +47,8 @@ export async function GET(
 ): Promise<NextResponse<MixingSessionDetail | ErrorResponse>> {
   try {
     // Validate session ID
-    const sessionId = SessionIdSchema.parse(params.id)
+    const { id } = await params
+    const sessionId = SessionIdSchema.parse(id)
 
     // Get session using service layer
     const session = await SessionService.getSession(sessionId)
@@ -98,7 +99,8 @@ export async function PATCH(
 ): Promise<NextResponse<MixingSession | ErrorResponse>> {
   try {
     // Validate session ID
-    const sessionId = SessionIdSchema.parse(params.id)
+    const { id } = await params
+    const sessionId = SessionIdSchema.parse(id)
 
     // Parse and validate request body
     const body = await request.json()
@@ -153,7 +155,8 @@ export async function DELETE(
 ): Promise<NextResponse<{ success: boolean } | ErrorResponse>> {
   try {
     // Validate session ID
-    const sessionId = SessionIdSchema.parse(params.id)
+    const { id } = await params
+    const sessionId = SessionIdSchema.parse(id)
 
     // Delete session using service layer
     await SessionService.deleteSession(sessionId)

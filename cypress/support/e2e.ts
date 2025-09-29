@@ -8,6 +8,7 @@ import './commands'
 // Hide fetch/XHR requests from command log
 Cypress.on('window:before:load', (win) => {
   // Disable service workers
+  // @ts-ignore - suppressing readonly property delete error
   delete win.navigator.serviceWorker
 })
 

@@ -233,7 +233,7 @@ export class SessionService {
 
     const { data, error } = await supabase
       .from('mixing_sessions')
-      .insert(sessionData)
+      .insert(sessionData as any)
       .select()
       .single()
 
@@ -271,7 +271,7 @@ export class SessionService {
 
     const { data, error } = await supabase
       .from('mixing_sessions')
-      .update(updateData)
+      .update(updateData as any)
       .eq('id', sessionId)
       .select()
       .single()
@@ -321,7 +321,7 @@ export class SessionService {
         session_id: sessionId,
         total_volume_ml: formula.total_volume_ml,
         mixing_order: formula.mixing_order || null,
-      })
+      } as any)
       .select()
       .single()
 
@@ -345,7 +345,7 @@ export class SessionService {
 
     const { error: itemsError } = await supabase
       .from('formula_items')
-      .insert(formulaItems)
+      .insert(formulaItems as any)
 
     if (itemsError) {
       // Cleanup formula if items insertion fails
@@ -381,7 +381,7 @@ export class SessionService {
     // Toggle favorite status
     const { data, error } = await supabase
       .from('mixing_sessions')
-      .update({ is_favorite: !currentData.is_favorite })
+      .update({ is_favorite: !currentData.is_favorite } as any)
       .eq('id', sessionId)
       .select()
       .single()

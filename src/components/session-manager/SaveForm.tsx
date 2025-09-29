@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useState } from 'react'
-import type { CreateSessionRequest, ColorValue, MixingFormula } from '@/types/types'
+import type { CreateSessionRequest, ColorValue, MixingFormula, InputMethod, SessionType } from '@/types/types'
 
 interface SaveFormProps {
-  sessionType: 'color_matching' | 'ratio_prediction'
-  inputMethod: 'color_picker' | 'image_upload' | 'manual_ratios'
+  sessionType: SessionType
+  inputMethod: InputMethod
   targetColor?: ColorValue
   calculatedColor?: ColorValue
   deltaE?: number

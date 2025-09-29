@@ -39,6 +39,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
+    return undefined
   }, [isOpen])
 
   const handleColorChange = (hex: string) => {
