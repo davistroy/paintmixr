@@ -14,106 +14,10 @@ import type {
 } from '@/types/types'
 import { optimizePaintRatios, mixMultiplePaints, PaintProperties } from '@/lib/kubelka-munk'
 import { deltaE2000, labToHex } from '@/lib/color-science'
+import { getUserPaints } from '@/lib/user-paints'
 
-// Sample paint database - in production this would come from a database
-const PAINT_DATABASE: PaintProperties[] = [
-  {
-    id: 'titanium-white',
-    name: 'Titanium White',
-    k_coefficient: 0.02,
-    s_coefficient: 0.98,
-    opacity: 0.95,
-    tinting_strength: 0.3,
-    lab_values: { l: 96, a: -0.5, b: 1.2 },
-    mass_tone_lab: { l: 96, a: -0.5, b: 1.2 },
-    undertone_lab: { l: 96, a: -0.5, b: 1.2 },
-    transparency_index: 0.02,
-  },
-  {
-    id: 'cadmium-red-medium',
-    name: 'Cadmium Red Medium',
-    k_coefficient: 0.45,
-    s_coefficient: 0.35,
-    opacity: 0.92,
-    tinting_strength: 0.85,
-    lab_values: { l: 48, a: 65, b: 52 },
-    mass_tone_lab: { l: 48, a: 65, b: 52 },
-    undertone_lab: { l: 72, a: 35, b: 28 },
-    transparency_index: 1.29,
-  },
-  {
-    id: 'cadmium-yellow-medium',
-    name: 'Cadmium Yellow Medium',
-    k_coefficient: 0.25,
-    s_coefficient: 0.55,
-    opacity: 0.88,
-    tinting_strength: 0.78,
-    lab_values: { l: 78, a: 12, b: 85 },
-    mass_tone_lab: { l: 78, a: 12, b: 85 },
-    undertone_lab: { l: 88, a: 5, b: 45 },
-    transparency_index: 0.45,
-  },
-  {
-    id: 'ultramarine-blue',
-    name: 'Ultramarine Blue',
-    k_coefficient: 0.65,
-    s_coefficient: 0.25,
-    opacity: 0.75,
-    tinting_strength: 0.92,
-    lab_values: { l: 32, a: 25, b: -58 },
-    mass_tone_lab: { l: 32, a: 25, b: -58 },
-    undertone_lab: { l: 68, a: 8, b: -25 },
-    transparency_index: 2.6,
-  },
-  {
-    id: 'burnt-umber',
-    name: 'Burnt Umber',
-    k_coefficient: 0.75,
-    s_coefficient: 0.15,
-    opacity: 0.82,
-    tinting_strength: 0.68,
-    lab_values: { l: 28, a: 15, b: 25 },
-    mass_tone_lab: { l: 28, a: 15, b: 25 },
-    undertone_lab: { l: 58, a: 8, b: 18 },
-    transparency_index: 5.0,
-  },
-  {
-    id: 'yellow-ochre',
-    name: 'Yellow Ochre',
-    k_coefficient: 0.35,
-    s_coefficient: 0.45,
-    opacity: 0.85,
-    tinting_strength: 0.65,
-    lab_values: { l: 65, a: 8, b: 45 },
-    mass_tone_lab: { l: 65, a: 8, b: 45 },
-    undertone_lab: { l: 82, a: 3, b: 25 },
-    transparency_index: 0.78,
-  },
-  {
-    id: 'raw-sienna',
-    name: 'Raw Sienna',
-    k_coefficient: 0.55,
-    s_coefficient: 0.25,
-    opacity: 0.78,
-    tinting_strength: 0.72,
-    lab_values: { l: 42, a: 22, b: 38 },
-    mass_tone_lab: { l: 42, a: 22, b: 38 },
-    undertone_lab: { l: 68, a: 12, b: 22 },
-    transparency_index: 2.2,
-  },
-  {
-    id: 'alizarin-crimson',
-    name: 'Alizarin Crimson',
-    k_coefficient: 0.85,
-    s_coefficient: 0.08,
-    opacity: 0.45,
-    tinting_strength: 0.95,
-    lab_values: { l: 28, a: 58, b: 18 },
-    mass_tone_lab: { l: 28, a: 58, b: 18 },
-    undertone_lab: { l: 75, a: 25, b: 8 },
-    transparency_index: 10.6,
-  },
-]
+// Use user's paint database from paint_colors.json
+const PAINT_DATABASE: PaintProperties[] = getUserPaints()
 
 // Request validation schema
 const ColorMatchRequestSchema = z.object({
@@ -125,7 +29,7 @@ const ColorMatchRequestSchema = z.object({
       b: z.number().min(-128).max(127),
     }),
   }),
-  total_volume_ml: z.number().min(100).max(1000),
+  total_volume_ml: z.number().min(100).max(1000).optional().default(200),
   optimization_preference: z.enum(['accuracy', 'cost', 'simplicity']).optional().default('accuracy'),
 })
 
@@ -239,6 +143,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
+    // Debug: Log the received request body BEFORE validation
+    console.log('=== DEBUG: Raw request body ===')
+    console.log('Received request body:', JSON.stringify(body, null, 2))
+    console.log('Body keys:', Object.keys(body))
+    console.log('total_volume_ml value:', body.total_volume_ml, typeof body.total_volume_ml)
+    console.log('target_color:', body.target_color)
+    console.log('optimization_preference:', body.optimization_preference)
+    console.log('=== END DEBUG ===')
+
     // Validate request
     const validatedData = ColorMatchRequestSchema.parse(body)
     const { target_color, total_volume_ml, optimization_preference } = validatedData
@@ -307,6 +220,7 @@ export async function POST(request: NextRequest) {
     const response: ColorMatchResponse = {
       formula: mixingResult.formula,
       achieved_color: achievedColor,
+      calculated_color: achievedColor,
       delta_e: deltaE,
       alternatives: alternatives.length > 0 ? alternatives : undefined,
     }
