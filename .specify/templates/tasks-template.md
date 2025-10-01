@@ -53,42 +53,50 @@
 - [ ] T005 [P] Contract test GET /api/users/{id} in tests/contract/test_users_get.py
 - [ ] T006 [P] Integration test user registration in tests/integration/test_registration.py
 - [ ] T007 [P] Integration test auth flow in tests/integration/test_auth.py
+- [ ] T008 [P] E2E test critical user workflow in cypress/e2e/user_workflow.cy.ts
+- [ ] T009 [P] Accessibility test for WCAG compliance in tests/accessibility/wcag.test.ts
+- [ ] T010 [P] Performance test for response times in tests/performance/performance.test.ts
 
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
-- [ ] T008 [P] User model in src/models/user.py
-- [ ] T009 [P] UserService CRUD in src/services/user_service.py
-- [ ] T010 [P] CLI --create-user in src/cli/user_commands.py
-- [ ] T011 POST /api/users endpoint
-- [ ] T012 GET /api/users/{id} endpoint
-- [ ] T013 Input validation
-- [ ] T014 Error handling and logging
+- [ ] T011 [P] User model in src/models/user.py
+- [ ] T012 [P] UserService CRUD in src/services/user_service.py
+- [ ] T013 [P] CLI --create-user in src/cli/user_commands.py
+- [ ] T014 POST /api/users endpoint
+- [ ] T015 GET /api/users/{id} endpoint
+- [ ] T016 Input validation
+- [ ] T017 Error handling and logging
 
 ## Phase 3.4: Integration
-- [ ] T015 Connect UserService to DB
-- [ ] T016 Auth middleware
-- [ ] T017 Request/response logging
-- [ ] T018 CORS and security headers
+- [ ] T018 Connect UserService to DB
+- [ ] T019 Auth middleware
+- [ ] T020 Request/response logging
+- [ ] T021 CORS and security headers
 
 ## Phase 3.5: Polish
-- [ ] T019 [P] Unit tests for validation in tests/unit/test_validation.py
-- [ ] T020 Performance tests (<200ms)
-- [ ] T021 [P] Update docs/api.md
-- [ ] T022 Remove duplication
-- [ ] T023 Run manual-testing.md
+- [ ] T022 [P] Unit tests for validation in tests/unit/test_validation.py
+- [ ] T023 [P] Update docs/api.md
+- [ ] T024 Remove duplication
+- [ ] T025 Run E2E test validation in cypress/e2e/
+- [ ] T026 Verify accessibility compliance with automated testing
+- [ ] T027 Performance regression validation with established baselines
 
 ## Dependencies
-- Tests (T004-T007) before implementation (T008-T014)
-- T008 blocks T009, T015
-- T016 blocks T018
-- Implementation before polish (T019-T023)
+- Tests (T004-T010) before implementation (T011-T017)
+- T011 blocks T012, T018
+- T019 blocks T021
+- Implementation before polish (T022-T027)
+- E2E tests (T008) require basic implementation for workflow validation
 
 ## Parallel Example
 ```
-# Launch T004-T007 together:
+# Launch T004-T010 together:
 Task: "Contract test POST /api/users in tests/contract/test_users_post.py"
 Task: "Contract test GET /api/users/{id} in tests/contract/test_users_get.py"
 Task: "Integration test registration in tests/integration/test_registration.py"
 Task: "Integration test auth in tests/integration/test_auth.py"
+Task: "E2E test critical user workflow in cypress/e2e/user_workflow.cy.ts"
+Task: "Accessibility test for WCAG compliance in tests/accessibility/wcag.test.ts"
+Task: "Performance test for response times in tests/performance/performance.test.ts"
 ```
 
 ## Notes

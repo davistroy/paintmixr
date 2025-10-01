@@ -29,6 +29,7 @@ const PaintMixr: React.FC = () => {
   const [isCalculating, setIsCalculating] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [error, setError] = useState<string>('')
+  const [enhancedMode, setEnhancedMode] = useState(false)
 
   // State for ratio prediction mode
   const [paintRatios, setPaintRatios] = useState<PaintRatioInput[]>([
@@ -49,7 +50,10 @@ const PaintMixr: React.FC = () => {
     setError('')
 
     try {
-      const response = await fetch('/api/color-match', {
+      // Choose API endpoint based on mode
+      const endpoint = enhancedMode ? '/api/optimize' : '/api/color-match'
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -58,17 +62,28 @@ const PaintMixr: React.FC = () => {
           target_color: color,
           total_volume_ml: 200,
           optimization_preference: 'accuracy',
+          ...(enhancedMode && {
+            algorithm: 'tpe_hybrid',
+            target_delta_e: 2.0,
+            max_paints: 3,
+          }),
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to calculate color match')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `API error: ${response.status}`)
       }
 
       const data = await response.json()
+
+      // Check for error response structure
+      if ('error' in data) {
+        throw new Error(data.message || 'Color matching failed')
+      }
+
       setFormula(data.formula)
-      setCalculatedColor(data.calculated_color)
+      setCalculatedColor(data.calculated_color || data.achieved_color)
       setDeltaE(data.delta_e)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to calculate color match')
@@ -236,6 +251,30 @@ const PaintMixr: React.FC = () => {
               </p>
             </button>
           </div>
+
+          {/* Enhanced Mode Toggle */}
+          {appMode === 'color_matching' && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enhancedMode}
+                  onChange={(e) => setEnhancedMode(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm font-medium text-gray-800">
+                  Enhanced Accuracy Mode
+                </span>
+                <span className="ml-2 text-xs text-gray-600">(Target ΔE ≤ 2.0)</span>
+              </label>
+              {enhancedMode && (
+                <p className="mt-2 text-xs text-gray-600">
+                  Uses advanced optimization algorithms for professional-grade color matching.
+                  May take longer to calculate.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Input Method Selection */}

@@ -1,0 +1,393 @@
+openapi: 3.0.3
+info:
+  title: Enhanced Color Accuracy Optimization API
+  description: API for paint mixing with Delta E ≤ 2.0 accuracy using asymmetric volume ratios
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: Enhanced color mixing API endpoints
+
+components:
+  schemas:
+    EnhancedMixingFormula:
+      type: object
+      required:
+        - target_color
+        - formula_version
+        - achieved_delta_e
+        - paint_components
+        - total_volume_ml
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        target_color:
+          $ref: '#/components/schemas/LABColor'
+        formula_version:
+          type: string
+          enum: [standard, enhanced]
+          default: enhanced
+        achieved_delta_e:
+          type: number
+          minimum: 0
+          maximum: 10
+          description: Delta E between target and achieved color
+        optimization_algorithm:
+          type: string
+          enum: [differential_evolution, tpe_hybrid]
+          default: differential_evolution
+        calculation_time_ms:
+          type: number
+          minimum: 0
+          maximum: 2000
+          description: Time taken for optimization in milliseconds
+        paint_components:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaintComponent'
+          minItems: 2
+          maxItems: 10
+        total_volume_ml:
+          type: number
+          minimum: 5.0
+          maximum: 10000.0
+          description: Total formula volume in milliliters
+        volume_constraints:
+          $ref: '#/components/schemas/VolumeConstraints'
+        accuracy_tier:
+          type: string
+          enum: [excellent, good, acceptable]
+          description: Accuracy classification (≤2.0, ≤4.0, >4.0 Delta E)
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Volume or accuracy warnings
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    PaintComponent:
+      type: object
+      required:
+        - paint_id
+        - volume_ml
+        - percentage
+      properties:
+        paint_id:
+          type: string
+          format: uuid
+        volume_ml:
+          type: number
+          minimum: 0.1
+          description: Volume in milliliters (precision to 0.1ml)
+        percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Percentage of total volume
+        is_below_minimum_threshold:
+          type: boolean
+          description: True if volume < 5.0ml (warning threshold)
+
+    VolumeConstraints:
+      type: object
+      properties:
+        min_total_volume_ml:
+          type: number
+          minimum: 5.0
+          default: 10.0
+        max_total_volume_ml:
+          type: number
+          minimum: 10.0
+          maximum: 10000.0
+          default: 1000.0
+        allow_scaling:
+          type: boolean
+          default: true
+          description: Allow scaling up small volumes to meet minimums
+
+    LABColor:
+      type: object
+      required:
+        - l
+        - a
+        - b
+      properties:
+        l:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Lightness (0-100)
+        a:
+          type: number
+          minimum: -128
+          maximum: 127
+          description: Green-Red axis
+        b:
+          type: number
+          minimum: -128
+          maximum: 127
+          description: Blue-Yellow axis
+
+    OptimizationRequest:
+      type: object
+      required:
+        - target_color
+        - available_paints
+      properties:
+        target_color:
+          $ref: '#/components/schemas/LABColor'
+        available_paints:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 2
+          description: Array of available paint IDs
+        volume_constraints:
+          $ref: '#/components/schemas/VolumeConstraints'
+        performance_budget_ms:
+          type: number
+          minimum: 100
+          maximum: 2000
+          default: 500
+          description: Maximum time to spend on optimization
+        accuracy_target:
+          type: number
+          minimum: 0.5
+          maximum: 4.0
+          default: 2.0
+          description: Target Delta E accuracy
+
+    OptimizationResult:
+      type: object
+      properties:
+        formula:
+          $ref: '#/components/schemas/EnhancedMixingFormula'
+        optimization_metadata:
+          type: object
+          properties:
+            iterations_completed:
+              type: integer
+              minimum: 0
+            convergence_achieved:
+              type: boolean
+            fallback_strategies_used:
+              type: array
+              items:
+                type: string
+            performance_metrics:
+              type: object
+              properties:
+                calculation_time_ms:
+                  type: number
+                memory_usage_mb:
+                  type: number
+                worker_thread_used:
+                  type: boolean
+
+    AccuracyComparisonResponse:
+      type: object
+      properties:
+        current_formula:
+          $ref: '#/components/schemas/EnhancedMixingFormula'
+        enhanced_formula:
+          $ref: '#/components/schemas/EnhancedMixingFormula'
+        improvement_metrics:
+          type: object
+          properties:
+            delta_e_improvement:
+              type: number
+              description: Reduction in Delta E
+            volume_efficiency:
+              type: number
+              description: Ratio of volumes used
+            cost_difference:
+              type: number
+              description: Material cost difference
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+paths:
+  /color/optimize:
+    post:
+      summary: Optimize color mixing formula for enhanced accuracy
+      description: Generate optimized paint mixing formula targeting Delta E ≤ 2.0
+      tags: [Color Optimization]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationRequest'
+      responses:
+        '200':
+          description: Optimization completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationResult'
+        '400':
+          description: Invalid optimization parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Impossible color combination - cannot achieve target
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+        '500':
+          description: Optimization failed due to server error
+
+  /color/optimize/compare:
+    post:
+      summary: Compare current vs enhanced accuracy formulas
+      description: Generate both standard and enhanced formulas for comparison
+      tags: [Color Optimization]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationRequest'
+      responses:
+        '200':
+          description: Comparison completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccuracyComparisonResponse'
+
+  /formulas/{id}:
+    get:
+      summary: Retrieve specific mixing formula
+      description: Get enhanced mixing formula by ID
+      tags: [Formulas]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Formula retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnhancedMixingFormula'
+        '404':
+          description: Formula not found
+
+  /formulas/{id}/precision-calculation:
+    get:
+      summary: Get precision volume calculations for formula
+      description: Retrieve milliliter-precise measurements and mixing guidelines
+      tags: [Precision Calculations]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Precision calculations retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  measured_components:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        paint_id:
+                          type: string
+                          format: uuid
+                        theoretical_volume_ml:
+                          type: number
+                        practical_volume_ml:
+                          type: number
+                        measurement_tool:
+                          type: string
+                        order_sequence:
+                          type: integer
+                  mixing_instructions:
+                    type: string
+                  equipment_recommendations:
+                    type: array
+                    items:
+                      type: string
+
+  /color/validate-accuracy:
+    post:
+      summary: Validate achieved color accuracy
+      description: Verify Delta E between target and mixed result
+      tags: [Validation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_color
+                - achieved_color
+              properties:
+                target_color:
+                  $ref: '#/components/schemas/LABColor'
+                achieved_color:
+                  $ref: '#/components/schemas/LABColor'
+      responses:
+        '200':
+          description: Accuracy validation completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  delta_e_ciede2000:
+                    type: number
+                  accuracy_tier:
+                    type: string
+                    enum: [excellent, good, acceptable]
+                  meets_target:
+                    type: boolean
+                  improvement_suggestions:
+                    type: array
+                    items:
+                      type: string
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

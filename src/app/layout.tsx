@@ -9,12 +9,17 @@ export const metadata: Metadata = {
   description: 'Professional paint mixing calculator with color science algorithms for accurate oil paint color matching and formula generation.',
   keywords: 'paint mixing, color matching, oil painting, color theory, paint calculator, art supplies',
   authors: [{ name: 'PaintMixr' }],
-  manifest: '/manifest.json',
+  manifest: '/manifest.webmanifest',
   metadataBase: new URL('http://localhost:3000'),
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'PaintMixr',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+    'msapplication-TileColor': '#1f2937',
+    'msapplication-TileImage': '/icons/mstile-150x150.png',
   },
   openGraph: {
     title: 'PaintMixr - Paint Color Mixing Calculator',
@@ -66,15 +71,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="PaintMixr" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#1f2937" />
-        <meta name="msapplication-TileImage" content="/icons/mstile-150x150.png" />
-      </head>
       <body className={`${inter.className} h-full antialiased`}>
         <div id="root" className="min-h-full">
           {children}
