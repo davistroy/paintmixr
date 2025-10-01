@@ -1,0 +1,291 @@
+/**
+ * Server-Side Supabase Client
+ * Feature: 003-deploy-to-vercel
+ * Task: T017
+ *
+ * Provides Supabase clients for server-side operations including:
+ * - Server Components (React Server Components)
+ * - Route Handlers (API routes)
+ * - Server Actions
+ * - Middleware
+ *
+ * Usage: Import appropriate function based on context
+ */
+
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import type { Database } from '@/types/types'
+
+/**
+ * Creates a Supabase client for Server Components
+ *
+ * Use this in:
+ * - React Server Components (default in Next.js App Router)
+ * - Server-side data fetching
+ *
+ * This client reads cookies but does NOT modify them
+ * (Server Components are read-only for cookies)
+ *
+ * @returns Supabase server client instance
+ */
+export async function createServerComponentClient() {
+  const cookieStore = await cookies()
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll()
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        } catch {
+          // Cannot set cookies in Server Components
+          // This can be ignored if you have middleware refreshing user sessions
+        }
+      }
+    }
+  })
+}
+
+// Creates a Supabase client for Route Handlers (API routes)
+// Use in /app/api/ route.ts files where cookies can be modified
+export async function createRouteHandlerClient() {
+  const cookieStore = await cookies()
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll()
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        } catch (error) {
+          // Cookie setting can fail in certain contexts
+          // This can be ignored if you have middleware refreshing user sessions
+          console.error('Failed to set cookies:', error)
+        }
+      }
+    }
+  })
+}
+
+/**
+ * Creates a Supabase client for Server Actions
+ *
+ * Use this in:
+ * - Server Actions ('use server' functions)
+ * - Form submissions
+ * - Server-side mutations
+ *
+ * @returns Supabase server client instance
+ */
+export async function createServerActionClient() {
+  // Server Actions use same cookie handling as Route Handlers
+  return createRouteHandlerClient()
+}
+
+/**
+ * Get server-side session
+ *
+ * Retrieves session from cookies on the server
+ * Validates session and returns user data
+ *
+ * @returns Promise with session data or null
+ */
+export async function getServerSession() {
+  const supabase = await createServerComponentClient()
+
+  const {
+    data: { session },
+    error
+  } = await supabase.auth.getSession()
+
+  if (error) {
+    console.error('Server get session error:', error)
+    return { session: null, user: null, error }
+  }
+
+  if (!session) {
+    return { session: null, user: null, error: null }
+  }
+
+  return { session, user: session.user, error: null }
+}
+
+/**
+ * Get server-side user
+ *
+ * Retrieves current user from session
+ * Validates JWT and returns user data
+ *
+ * @returns Promise with user data or null
+ */
+export async function getServerUser() {
+  const supabase = await createServerComponentClient()
+
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser()
+
+  if (error) {
+    console.error('Server get user error:', error)
+    return { user: null, error }
+  }
+
+  return { user, error: null }
+}
+
+/**
+ * Validate server-side authentication
+ *
+ * Checks if user is authenticated and session is valid
+ * Useful for protecting server components and API routes
+ *
+ * @returns Object with isAuthenticated flag and user data
+ */
+export async function validateServerAuth() {
+  const { session, user, error } = await getServerSession()
+
+  const isAuthenticated = Boolean(session && user && !error)
+
+  return {
+    isAuthenticated,
+    session,
+    user,
+    error
+  }
+}
+
+/**
+ * Require server-side authentication
+ *
+ * Throws error if user is not authenticated
+ * Use this to protect server components/actions
+ *
+ * @throws Error if not authenticated
+ * @returns User data
+ */
+export async function requireServerAuth() {
+  const { isAuthenticated, user, error } = await validateServerAuth()
+
+  if (!isAuthenticated || !user) {
+    throw new Error(error?.message || 'Authentication required')
+  }
+
+  return user
+}
+
+/**
+ * Sign out on server
+ *
+ * Clears session cookies and invalidates session
+ * Use in API routes or server actions
+ *
+ * @returns Promise with success or error
+ */
+export async function serverSignOut() {
+  const supabase = await createRouteHandlerClient()
+
+  const { error } = await supabase.auth.signOut()
+
+  if (error) {
+    console.error('Server sign-out error:', error)
+    return { success: false, error }
+  }
+
+  return { success: true, error: null }
+}
+
+/**
+ * Exchange OAuth code for session on server
+ *
+ * Called in callback route handler after OAuth redirect
+ *
+ * @param code - Authorization code from OAuth provider
+ * @returns Promise with session data or error
+ */
+export async function serverExchangeCodeForSession(code: string) {
+  const supabase = await createRouteHandlerClient()
+
+  const {
+    data: { session },
+    error
+  } = await supabase.auth.exchangeCodeForSession(code)
+
+  if (error) {
+    console.error('Server exchange code error:', error)
+    return { session: null, error }
+  }
+
+  return { session, error: null }
+}
+
+/**
+ * Get user identities (OAuth providers linked to account)
+ *
+ * Returns list of OAuth providers connected to user's account
+ * Useful for displaying linked accounts in settings
+ *
+ * @param userId - User ID to get identities for
+ * @returns Promise with identities array or error
+ */
+export async function getUserIdentities(userId: string) {
+  const supabase = await createServerComponentClient()
+
+  const { data: identities, error } = await supabase
+    .from('auth.identities')
+    .select('*')
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('Get identities error:', error)
+    return { identities: null, error }
+  }
+
+  return { identities, error: null }
+}
+
+/**
+ * Check if user has specific OAuth provider linked
+ *
+ * @param userId - User ID to check
+ * @param provider - Provider to check ('google', 'azure', 'facebook')
+ * @returns Promise with boolean result
+ */
+export async function hasProviderLinked(
+  userId: string,
+  provider: 'google' | 'azure' | 'facebook'
+) {
+  const { identities, error } = await getUserIdentities(userId)
+
+  if (error || !identities) {
+    return { hasProvider: false, error }
+  }
+
+  const hasProvider = identities.some(
+    (identity) => identity.provider === provider
+  )
+
+  return { hasProvider, error: null }
+}
