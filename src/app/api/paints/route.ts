@@ -1,310 +1,274 @@
 /**
- * GET /api/paints
- * List available paints with their properties for mixing calculations
+ * Enhanced Paint API with Supabase integration
+ * Supports CRUD operations for user paint collections
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
-import * as fs from 'fs'
-import * as path from 'path'
-import type {
-  PaintColor,
-  ErrorResponse,
-} from '@/types/types'
-import { PaintProperties } from '@/lib/kubelka-munk'
-import { hexToLab, labToHex } from '@/lib/color-science'
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/database/supabase-client';
+import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
+import { EnhancedPaintCreateSchema } from '@/lib/database/models/enhanced-paint';
+import { PaintFilters, PaginationOptions } from '@/lib/database/database.types';
+import { z } from 'zod';
 
-// Interface for simple paint colors from JSON file
-interface SimplePaintColor {
-  hex: string
-  name: string
-  code: string
-  spray: string
-  note?: string
-}
+const QueryParamsSchema = z.object({
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
+  sort_field: z.enum(['name', 'brand', 'created_at', 'updated_at', 'last_used_at', 'times_used', 'volume_ml', 'cost_per_ml']).optional(),
+  sort_direction: z.enum(['asc', 'desc']).default('desc'),
+  brand: z.string().optional(),
+  finish_type: z.enum(['matte', 'satin', 'semi_gloss', 'gloss', 'high_gloss']).optional(),
+  collection_id: z.string().uuid().optional(),
+  tags: z.string().transform(val => val ? val.split(',') : undefined).optional(),
+  min_volume: z.coerce.number().min(0).optional(),
+  max_volume: z.coerce.number().min(0).optional(),
+  min_cost: z.coerce.number().min(0).optional(),
+  max_cost: z.coerce.number().min(0).optional(),
+  color_verified: z.coerce.boolean().optional(),
+  calibrated: z.coerce.boolean().optional(),
+  archived: z.coerce.boolean().default(false)
+});
 
-// Cache for loaded paint database
-let PAINT_DATABASE: PaintProperties[] | null = null
-
-// Load paint colors from JSON file and convert to internal format
-function loadPaintDatabase(): PaintProperties[] {
-  if (PAINT_DATABASE) {
-    return PAINT_DATABASE
+async function getCurrentUser(supabase: any) {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) {
+    throw new Error('Unauthorized');
   }
-
-  try {
-    const filePath = path.join(process.cwd(), 'public', 'paint-colors.json')
-    const fileContent = fs.readFileSync(filePath, 'utf-8')
-    const simplePaints: SimplePaintColor[] = JSON.parse(fileContent)
-
-    PAINT_DATABASE = simplePaints.map(convertSimplePaintToProperties)
-    return PAINT_DATABASE
-  } catch (error) {
-    console.error('Failed to load paint colors from JSON file:', error)
-    // Fallback to empty array or could use hardcoded colors as backup
-    PAINT_DATABASE = []
-    return PAINT_DATABASE
-  }
-}
-
-// Convert simple paint color to complex PaintProperties format
-function convertSimplePaintToProperties(simplePaint: SimplePaintColor): PaintProperties {
-  // Convert hex to LAB color space
-  const labColor = hexToLab(simplePaint.hex)
-
-  // Generate unique ID from paint code
-  const id = simplePaint.code.toLowerCase().replace(/[^a-z0-9]/g, '-')
-
-  // Assign reasonable default values based on color characteristics
-  const defaults = assignDefaultsByColor(labColor, simplePaint.name)
-
-  return {
-    id,
-    name: simplePaint.name,
-    k_coefficient: defaults.k_coefficient,
-    s_coefficient: defaults.s_coefficient,
-    opacity: defaults.opacity,
-    tinting_strength: defaults.tinting_strength,
-    lab_values: labColor,
-    mass_tone_lab: labColor,
-    // Create slightly lighter undertone
-    undertone_lab: {
-      l: Math.min(100, labColor.l + 15),
-      a: labColor.a * 0.6,
-      b: labColor.b * 0.6
-    },
-    transparency_index: defaults.transparency_index,
-  }
-}
-
-// Assign default optical properties based on color characteristics
-function assignDefaultsByColor(lab: { l: number; a: number; b: number }, name: string) {
-  const lightness = lab.l
-  const saturation = Math.sqrt(lab.a * lab.a + lab.b * lab.b)
-  const nameLower = name.toLowerCase()
-
-  // Base defaults
-  let k_coefficient = 0.4
-  let s_coefficient = 0.4
-  let opacity = 0.85
-  let tinting_strength = 0.7
-  let transparency_index = 1.0
-
-  // Adjust based on color name patterns
-  if (nameLower.includes('white') || nameLower.includes('primer')) {
-    // Whites and primers - high opacity, low absorption
-    k_coefficient = 0.02
-    s_coefficient = 0.95
-    opacity = 0.95
-    tinting_strength = 0.3
-    transparency_index = 0.05
-  } else if (nameLower.includes('black')) {
-    // Blacks - high absorption, medium scattering
-    k_coefficient = 0.9
-    s_coefficient = 0.1
-    opacity = 0.95
-    tinting_strength = 0.95
-    transparency_index = 9.0
-  } else if (nameLower.includes('yellow')) {
-    // Yellows - typically semi-opaque with good tinting
-    k_coefficient = 0.25 + (saturation / 200)
-    s_coefficient = 0.55 - (saturation / 400)
-    opacity = 0.88
-    tinting_strength = 0.75 + (saturation / 400)
-    transparency_index = 0.4 + (saturation / 200)
-  } else if (nameLower.includes('red')) {
-    // Reds - vary widely, adjust by saturation
-    k_coefficient = 0.4 + (saturation / 300)
-    s_coefficient = 0.45 - (saturation / 400)
-    opacity = 0.9
-    tinting_strength = 0.8 + (saturation / 500)
-    transparency_index = 0.8 + (saturation / 100)
-  } else if (nameLower.includes('blue')) {
-    // Blues - typically good coverage
-    k_coefficient = 0.5 + (saturation / 400)
-    s_coefficient = 0.35 - (saturation / 600)
-    opacity = 0.8
-    tinting_strength = 0.85 + (saturation / 600)
-    transparency_index = 1.5 + (saturation / 80)
-  } else if (nameLower.includes('green')) {
-    // Greens - medium properties
-    k_coefficient = 0.45 + (saturation / 400)
-    s_coefficient = 0.4 - (saturation / 500)
-    opacity = 0.82
-    tinting_strength = 0.75 + (saturation / 400)
-    transparency_index = 1.2 + (saturation / 120)
-  } else if (nameLower.includes('orange')) {
-    // Oranges - typically semi-transparent
-    k_coefficient = 0.35 + (saturation / 350)
-    s_coefficient = 0.5 - (saturation / 500)
-    opacity = 0.85
-    tinting_strength = 0.8
-    transparency_index = 0.6 + (saturation / 150)
-  } else if (nameLower.includes('gray') || nameLower.includes('grey')) {
-    // Grays - adjust by lightness
-    k_coefficient = 0.3 + ((100 - lightness) / 200)
-    s_coefficient = 0.6 - ((100 - lightness) / 300)
-    opacity = 0.9
-    tinting_strength = 0.6
-    transparency_index = 0.5 + ((100 - lightness) / 100)
-  }
-
-  // Adjust all values based on lightness
-  if (lightness < 30) {
-    // Dark colors - increase absorption
-    k_coefficient = Math.min(0.9, k_coefficient * 1.3)
-    tinting_strength = Math.min(1.0, tinting_strength * 1.2)
-    transparency_index = Math.min(10.0, transparency_index * 1.5)
-  } else if (lightness > 80) {
-    // Light colors - increase scattering
-    s_coefficient = Math.min(0.98, s_coefficient * 1.2)
-    k_coefficient = Math.max(0.02, k_coefficient * 0.7)
-    transparency_index = Math.max(0.02, transparency_index * 0.5)
-  }
-
-  return {
-    k_coefficient: Math.round(k_coefficient * 100) / 100,
-    s_coefficient: Math.round(s_coefficient * 100) / 100,
-    opacity: Math.round(opacity * 100) / 100,
-    tinting_strength: Math.round(tinting_strength * 100) / 100,
-    transparency_index: Math.round(transparency_index * 100) / 100,
-  }
-}
-
-// Query parameters validation
-const PaintsQuerySchema = z.object({
-  category: z.enum(['primary', 'earth', 'transparent', 'opaque']).optional(),
-  search: z.string().min(1).max(50).optional(),
-}).optional()
-
-// Transform internal paint properties to API response format
-function transformPaintToApiFormat(paint: PaintProperties): PaintColor {
-  return {
-    id: paint.id,
-    name: paint.name,
-    brand: 'Generic', // Default brand since not in source data
-    hex_color: labToHex(paint.lab_values),
-    lab: paint.lab_values,
-    k_coefficient: paint.k_coefficient,
-    s_coefficient: paint.s_coefficient,
-    opacity: paint.opacity,
-    tinting_strength: paint.tinting_strength,
-    density: 1.2, // Default density in g/ml
-    cost_per_ml: 0.1, // Default cost per ml
-  }
-}
-
-// Categorize paints by their name and properties
-function categorizeByPaint(paint: PaintProperties): 'primary' | 'earth' | 'transparent' | 'opaque' {
-  const nameLower = paint.name.toLowerCase()
-
-  // Primary colors
-  if (nameLower.includes('red') && !nameLower.includes('oxide') && !nameLower.includes('burnt') ||
-      nameLower.includes('blue') && !nameLower.includes('gray') ||
-      nameLower.includes('yellow') && !nameLower.includes('ochre')) {
-    return 'primary'
-  }
-
-  // Earth tones
-  if (nameLower.includes('ochre') || nameLower.includes('sienna') || nameLower.includes('umber') ||
-      nameLower.includes('oxide') || nameLower.includes('caterpillar') || nameLower.includes('gray')) {
-    return 'earth'
-  }
-
-  // Transparent (based on transparency index)
-  if (paint.transparency_index > 5.0) {
-    return 'transparent'
-  }
-
-  // Default to opaque
-  return 'opaque'
-}
-
-// Filter paints based on query parameters
-function filterPaints(paints: PaintProperties[], params?: z.infer<typeof PaintsQuerySchema>): PaintProperties[] {
-  if (!params) return paints
-
-  let filtered = paints
-
-  // Filter by category
-  if (params.category) {
-    filtered = filtered.filter(paint => categorizeByPaint(paint) === params.category)
-  }
-
-  // Filter by search term
-  if (params.search) {
-    const searchTerm = params.search.toLowerCase()
-    filtered = filtered.filter(paint =>
-      paint.name.toLowerCase().includes(searchTerm) ||
-      paint.id.toLowerCase().includes(searchTerm)
-    )
-  }
-
-  return filtered
+  return user;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const supabase = createServerSupabaseClient();
+    const user = await getCurrentUser(supabase);
 
-    // Extract and validate query parameters
-    const queryParams = searchParams.size > 0 ? {
-      category: searchParams.get('category'),
-      search: searchParams.get('search'),
-    } : undefined
+    // Parse query parameters
+    const url = new URL(request.url);
+    const queryParams = Object.fromEntries(url.searchParams.entries());
 
-    const validatedParams = PaintsQuerySchema.parse(queryParams)
+    const parsedParams = QueryParamsSchema.parse(queryParams);
 
-    // Load and filter paints based on query parameters
-    const paintDatabase = loadPaintDatabase()
-    const filteredPaints = filterPaints(paintDatabase, validatedParams)
+    // Build filters
+    const filters: PaintFilters = {
+      brand: parsedParams.brand,
+      finish_type: parsedParams.finish_type,
+      collection_id: parsedParams.collection_id,
+      tags: parsedParams.tags,
+      min_volume: parsedParams.min_volume,
+      max_volume: parsedParams.max_volume,
+      min_cost: parsedParams.min_cost,
+      max_cost: parsedParams.max_cost,
+      color_verified: parsedParams.color_verified,
+      calibrated: parsedParams.calibrated,
+      archived: parsedParams.archived
+    };
 
-    // Transform to API response format
-    const paints = filteredPaints.map(transformPaintToApiFormat)
+    // Build pagination options
+    const pagination: PaginationOptions = {
+      page: parsedParams.page,
+      limit: parsedParams.limit,
+      sort_field: parsedParams.sort_field,
+      sort_direction: parsedParams.sort_direction
+    };
 
-    // Sort alphabetically by name
-    paints.sort((a, b) => a.name.localeCompare(b.name))
+    const repository = new EnhancedPaintRepository(supabase);
+    const result = await repository.getUserPaints(user.id, filters, pagination);
 
-    return NextResponse.json({ paints })
+    if (result.error) {
+      return NextResponse.json(
+        {
+          error: {
+            code: result.error.code,
+            message: result.error.message
+          }
+        },
+        { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
+      );
+    }
+
+    return NextResponse.json({
+      data: result.data,
+      pagination: result.pagination,
+      meta: {
+        total_count: result.pagination.total_count,
+        filters_applied: Object.keys(filters).filter(key => filters[key as keyof PaintFilters] !== undefined).length,
+        cache_timestamp: new Date().toISOString()
+      }
+    });
 
   } catch (error) {
-    console.error('Paints list error:', error)
+    console.error('GET /api/paints error:', error);
 
     if (error instanceof z.ZodError) {
-      const errorResponse: ErrorResponse = {
-        error: 'VALIDATION_ERROR',
-        message: 'Invalid query parameters',
-        details: error.errors,
-      }
-      return NextResponse.json(errorResponse, { status: 400 })
+      return NextResponse.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid query parameters',
+            details: error.errors
+          }
+        },
+        { status: 400 }
+      );
     }
 
-    const errorResponse: ErrorResponse = {
-      error: 'INTERNAL_ERROR',
-      message: 'Failed to fetch paints',
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+        { status: 401 }
+      );
     }
-    return NextResponse.json(errorResponse, { status: 500 })
+
+    return NextResponse.json(
+      { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
+      { status: 500 }
+    );
   }
 }
 
-// Handle unsupported methods
-export async function POST() {
-  return NextResponse.json(
-    { error: 'METHOD_NOT_ALLOWED', message: 'POST method not supported' },
-    { status: 405 }
-  )
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createServerSupabaseClient();
+    const user = await getCurrentUser(supabase);
+
+    const body = await request.json();
+
+    // Validate request body
+    const paintData = EnhancedPaintCreateSchema.parse({
+      ...body,
+      user_id: user.id
+    });
+
+    const repository = new EnhancedPaintRepository(supabase);
+    const result = await repository.createPaint(paintData);
+
+    if (result.error) {
+      return NextResponse.json(
+        {
+          error: {
+            code: result.error.code,
+            message: result.error.message
+          }
+        },
+        { status: result.error.code === 'VALIDATION_ERROR' ? 400 : 500 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        data: result.data,
+        meta: {
+          created_at: result.data?.created_at,
+          version: result.data?.version
+        }
+      },
+      { status: 201 }
+    );
+
+  } catch (error) {
+    console.error('POST /api/paints error:', error);
+
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid paint data',
+            details: error.errors
+          }
+        },
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
+      { status: 500 }
+    );
+  }
 }
 
-export async function PUT() {
-  return NextResponse.json(
-    { error: 'METHOD_NOT_ALLOWED', message: 'PUT method not supported' },
-    { status: 405 }
-  )
+// Bulk operations endpoint
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = createServerSupabaseClient();
+    const user = await getCurrentUser(supabase);
+
+    const body = await request.json();
+    const { paint_ids, updates } = body;
+
+    if (!Array.isArray(paint_ids) || paint_ids.length === 0) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'paint_ids array is required' } },
+        { status: 400 }
+      );
+    }
+
+    if (paint_ids.length > 50) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Maximum 50 paints can be updated at once' } },
+        { status: 400 }
+      );
+    }
+
+    // Validate paint IDs are UUIDs
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!paint_ids.every((id: string) => uuidRegex.test(id))) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Invalid paint ID format' } },
+        { status: 400 }
+      );
+    }
+
+    const repository = new EnhancedPaintRepository(supabase);
+    const result = await repository.bulkUpdatePaints(paint_ids, user.id, updates);
+
+    if (result.error) {
+      return NextResponse.json(
+        {
+          error: {
+            code: result.error.code,
+            message: result.error.message
+          }
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      data: result.data,
+      meta: {
+        updated_count: result.data?.length || 0,
+        updated_at: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('PUT /api/paints error:', error);
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE() {
   return NextResponse.json(
-    { error: 'METHOD_NOT_ALLOWED', message: 'DELETE method not supported' },
+    { error: { code: 'METHOD_NOT_ALLOWED', message: 'Use DELETE /api/paints/[id] for individual paint deletion' } },
     { status: 405 }
-  )
+  );
 }

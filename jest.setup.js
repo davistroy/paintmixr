@@ -1,4 +1,8 @@
-import '@testing-library/jest-dom'
+import '@testing-library/jest-dom';
+import { toHaveNoViolations } from 'jest-axe';
+
+// Extend Jest matchers for accessibility testing
+expect.extend(toHaveNoViolations);
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {
@@ -65,3 +69,53 @@ global.FileReader = class MockFileReader {
     if (this.onload) this.onload()
   }
 }
+
+// Mock matchMedia for accessibility and responsive testing
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
+// Mock focus management for accessibility testing
+let focusedElement = null;
+
+Object.defineProperty(document, 'activeElement', {
+  get: () => focusedElement,
+  configurable: true,
+});
+
+HTMLElement.prototype.focus = jest.fn().mockImplementation(function() {
+  focusedElement = this;
+});
+
+HTMLElement.prototype.blur = jest.fn().mockImplementation(function() {
+  if (focusedElement === this) {
+    focusedElement = null;
+  }
+});
+
+// Setup accessibility testing defaults
+global.axeConfig = {
+  rules: {
+    'color-contrast': { enabled: true },
+    'keyboard-navigation': { enabled: true },
+    'aria-labels': { enabled: true },
+    'focus-management': { enabled: true },
+  },
+  tags: ['wcag2a', 'wcag2aa', 'wcag21aa'],
+};
+
+// Clean up after each test
+afterEach(() => {
+  focusedElement = null;
+  jest.clearAllMocks();
+});

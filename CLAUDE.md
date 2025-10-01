@@ -114,3 +114,25 @@ The `update-agent-context.sh` script maintains this CLAUDE.md file by:
 - Maintaining token efficiency (<150 lines)
 
 This ensures future Claude instances have current project context without manual maintenance.
+
+# Recent Technical Decisions (Last Updated: 2025-09-29)
+
+## Constitutional Updates (v1.1.0)
+- **NEW Principle VI**: Real-World Testing & Validation - Cypress E2E testing mandatory
+- **Enhanced Color Accuracy**: Kubelka-Munk coefficients now required in paint database
+- **Production Standards**: PWA compliance, Supabase RLS security, session management
+- **Performance Requirements**: Sub-500ms color calculations, automated regression testing
+
+## As-Built Technology Stack
+- **Frontend**: Next.js 15, TypeScript strict mode, Radix UI, Tailwind CSS
+- **Backend**: Supabase with Row Level Security policies
+- **Testing**: Jest + Cypress E2E + WCAG accessibility testing
+- **Color Science**: CIE 2000 Delta E, LAB color space, Kubelka-Munk mixing theory
+- **Performance**: Web Workers for calculations, performance monitoring with baselines
+
+## Key Implementation Patterns
+- ColorValue interface with hex/LAB validation and type guards
+- User-specific paint collections with RLS isolation
+- Canvas-based image processing with extraction methods
+- Performance budgets enforced (Lighthouse ≥90 for Performance/Accessibility)
+- PWA manifest with offline capabilities

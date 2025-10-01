@@ -14,5 +14,23 @@
     "prefer-const": "error",
     "no-var": "error"
   },
-  "ignorePatterns": ["node_modules/", ".next/", "out/", "dist/"]
+  "ignorePatterns": ["node_modules/", ".next/", "out/", "dist/"],
+  "env": {
+    "webextensions": true,
+    "worker": true
+  },
+  "overrides": [
+    {
+      "files": ["src/workers/**/*.ts"],
+      "env": {
+        "worker": true,
+        "browser": false
+      },
+      "globals": {
+        "self": "readonly",
+        "postMessage": "readonly",
+        "importScripts": "readonly"
+      }
+    }
+  ]
 }
