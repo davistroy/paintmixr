@@ -38,65 +38,9 @@ export function createClient() {
     throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY')
   }
 
-  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        // Client-side cookie reading
-        if (typeof document === 'undefined') {
-          return undefined
-        }
-
-        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
-        return match ? decodeURIComponent(match[2]) : undefined
-      },
-      set(name: string, value: string, options: any) {
-        // Client-side cookie setting
-        if (typeof document === 'undefined') {
-          return
-        }
-
-        let cookie = `${name}=${encodeURIComponent(value)}`
-
-        if (options?.maxAge) {
-          cookie += `; max-age=${options.maxAge}`
-        }
-
-        if (options?.path) {
-          cookie += `; path=${options.path}`
-        }
-
-        if (options?.sameSite) {
-          cookie += `; samesite=${options.sameSite}`
-        }
-
-        if (options?.secure) {
-          cookie += '; secure'
-        }
-
-        document.cookie = cookie
-      },
-      remove(name: string, options: any) {
-        // Client-side cookie removal
-        if (typeof document === 'undefined') {
-          return
-        }
-
-        this.set(name, '', { ...options, maxAge: 0 })
-      }
-    },
-    auth: {
-      // Auto-refresh tokens before expiry
-      autoRefreshToken: true,
-      // Persist session across browser tabs
-      persistSession: true,
-      // Detect session from URL hash (OAuth callback)
-      detectSessionInUrl: true,
-      // Flow type for OAuth (PKCE enabled by default)
-      flowType: 'pkce',
-      // Storage key for session
-      storageKey: 'sb-auth-token'
-    }
-  })
+  // Use default cookie handling from @supabase/ssr
+  // The package handles cookies automatically for browser environments
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 }
 
 /**
