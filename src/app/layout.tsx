@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import { AuthProvider } from '@/components/auth/AuthProvider'
+import { getServerSession } from '@/lib/auth/supabase-server'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -10,7 +12,7 @@ export const metadata: Metadata = {
   keywords: 'paint mixing, color matching, oil painting, color theory, paint calculator, art supplies',
   authors: [{ name: 'PaintMixr' }],
   manifest: '/manifest.webmanifest',
-  metadataBase: new URL('http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -64,17 +66,21 @@ export const viewport = {
   themeColor: '#1f2937',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const { session, user } = await getServerSession()
+
   return (
     <html lang="en" className="h-full">
       <body className={`${inter.className} h-full antialiased`}>
-        <div id="root" className="min-h-full">
-          {children}
-        </div>
+        <AuthProvider initialSession={session} initialUser={user}>
+          <div id="root" className="min-h-full">
+            {children}
+          </div>
+        </AuthProvider>
 
         {/* Portal for modals */}
         <div id="modal-root"></div>
