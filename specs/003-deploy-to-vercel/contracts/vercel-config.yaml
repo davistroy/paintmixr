@@ -1,0 +1,230 @@
+# Vercel Deployment Configuration Contract
+# Spec: 003-deploy-to-vercel
+# This document defines the expected Vercel configuration
+
+vercel.json:
+  framework: nextjs
+  buildCommand: npm run build
+  devCommand: npm run dev
+  installCommand: npm install
+  outputDirectory: .next
+
+  # Environment variables (configured via Vercel Dashboard)
+  env:
+    # Public variables (exposed to browser)
+    NEXT_PUBLIC_SUPABASE_URL:
+      type: string
+      required: true
+      targets: [production, preview, development]
+      example: "https://abcdefgh.supabase.co"
+
+    NEXT_PUBLIC_SUPABASE_ANON_KEY:
+      type: string
+      required: true
+      targets: [production, preview, development]
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    NEXT_PUBLIC_APP_URL:
+      type: string
+      required: true
+      targets: [production, preview, development]
+      description: "Full app URL for OAuth redirects"
+      production: "https://paintmixr.vercel.app"
+      preview: "https://{{VERCEL_URL}}"
+      development: "http://localhost:3000"
+
+    # OAuth Provider Secrets (server-side only, encrypted)
+    GOOGLE_CLIENT_SECRET:
+      type: encrypted
+      required: true
+      targets: [production, preview]
+      description: "Google OAuth client secret"
+
+    MICROSOFT_CLIENT_SECRET:
+      type: encrypted
+      required: true
+      targets: [production, preview]
+      description: "Microsoft Azure AD client secret"
+
+    FACEBOOK_APP_SECRET:
+      type: encrypted
+      required: true
+      targets: [production, preview]
+      description: "Facebook App secret"
+
+  # Build configuration
+  build:
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+
+  # Regions (Vercel auto-selects optimal)
+  regions: [iad1]  # US East (default)
+
+  # Headers for security
+  headers:
+    - source: "/(.*)"
+      headers:
+        - key: X-Frame-Options
+          value: DENY
+        - key: X-Content-Type-Options
+          value: nosniff
+        - key: Referrer-Policy
+          value: strict-origin-when-cross-origin
+        - key: Permissions-Policy
+          value: camera=(), microphone=(), geolocation=()
+
+  # Redirects
+  redirects:
+    - source: /signin
+      destination: /auth/signin
+      permanent: true
+
+# GitHub Integration Configuration
+github:
+  integration:
+    enabled: true
+    repository: davistroy/paintmixr
+
+  deployment:
+    productionBranch: main
+    previewBranches: all  # All branches get preview deployments
+
+  pullRequests:
+    preview: true  # Auto-deploy PRs
+    comments: true  # Comment with preview URL
+
+  checks:
+    enabled: true  # GitHub status checks
+    required: false  # Don't block merges on deploy failures
+
+# Deployment Targets
+deployments:
+  production:
+    branch: main
+    domain: paintmixr.vercel.app  # or custom domain
+    autoDeployOnPush: true
+    maxDuration: 300  # 5 minutes max (requirement: <5 min)
+
+  preview:
+    branches: "*"  # All non-main branches
+    pattern: "https://{{PROJECT}}-{{HASH}}.vercel.app"
+    maxDuration: 300
+
+# Performance Requirements (from spec)
+performance:
+  buildTime: <300  # seconds (<5 minutes)
+  coldStart: <3000  # milliseconds (serverless function warmup)
+  responseTime: <500  # milliseconds (OAuth redirect latency)
+  concurrentUsers: 10  # Per NFR-001
+
+# Security Requirements
+security:
+  https: required  # NFR-005
+  certificateManagement: automatic  # Vercel handles
+  secrets: encrypted  # All non-public env vars
+  cors:
+    allowedOrigins:
+      - https://paintmixr.vercel.app
+      - http://localhost:3000
+    allowedMethods: [GET, POST, OPTIONS]
+
+# Monitoring & Logs
+monitoring:
+  logs:
+    access: developers-only  # FR-014
+    retention: 7days  # Vercel default
+
+  analytics:
+    enabled: true
+    webVitals: true
+
+  alerts:
+    deploymentFailure: true
+    buildErrors: true
+
+# Expected Vercel System Variables (auto-populated)
+systemVariables:
+  VERCEL: "1"
+  VERCEL_ENV: "[production|preview|development]"
+  VERCEL_URL: "[deployment-url].vercel.app"
+  VERCEL_GIT_COMMIT_SHA: "[commit-hash]"
+  VERCEL_GIT_COMMIT_REF: "[branch-name]"
+  VERCEL_GIT_COMMIT_MESSAGE: "[commit-message]"
+  VERCEL_GIT_PROVIDER: "github"
+  VERCEL_GIT_REPO_OWNER: "davistroy"
+  VERCEL_GIT_REPO_SLUG: "paintmixr"
+
+# OAuth Callback URLs (configured in OAuth providers)
+oauthCallbacks:
+  supabase: "https://[project-ref].supabase.co/auth/v1/callback"
+
+  production:
+    google: "https://paintmixr.vercel.app/auth/callback"
+    microsoft: "https://paintmixr.vercel.app/auth/callback"
+    facebook: "https://paintmixr.vercel.app/auth/callback"
+
+  preview:
+    # Wildcard pattern registered in OAuth apps
+    pattern: "https://*-*.vercel.app/auth/callback"
+    note: "May require separate OAuth apps for preview environments"
+
+# Deployment Workflow
+workflow:
+  pushToMain:
+    1: GitHub webhook triggers Vercel
+    2: Vercel pulls latest code
+    3: npm install (install dependencies)
+    4: npm run build (build Next.js app)
+    5: Deploy to production
+    6: Update DNS if needed
+    7: Notify via GitHub commit status
+    duration: <300s  # <5 minutes (FR-015)
+
+  pushToFeatureBranch:
+    1: GitHub webhook triggers Vercel
+    2: Vercel creates preview deployment
+    3: npm install & npm run build
+    4: Deploy to unique preview URL
+    5: Comment on PR with preview URL (if PR exists)
+    duration: <300s
+
+  deploymentFailure:
+    behavior: Keep previous version live (FR-011, NFR-003)
+    notification: GitHub commit status = failure
+    logs: Available in Vercel dashboard
+
+# DNS Configuration (if using custom domain)
+dns:
+  type: CNAME
+  name: paintmixr  # or @
+  value: cname.vercel-dns.com
+  ttl: 3600
+
+# SSL/TLS
+ssl:
+  provider: Let's Encrypt (via Vercel)
+  autoRenewal: true
+  enforcement: redirect-http-to-https
+  tlsVersion: 1.2+
+
+# Edge Configuration
+edge:
+  middleware: enabled  # For auth checks
+  regions: auto  # Vercel auto-distributes
+  caching:
+    staticAssets: aggressive
+    apiRoutes: none  # Dynamic content
+    authRoutes: none  # Never cache auth
+
+# Testing Configuration
+testing:
+  cypress:
+    baseUrl: "{{VERCEL_URL}}"  # Use preview URL for E2E tests
+    env:
+      SUPABASE_URL: "{{NEXT_PUBLIC_SUPABASE_URL}}"
+
+# Rollback Strategy
+rollback:
+  automatic: false  # Manual rollback via Vercel dashboard
+  instant: true  # Promote previous deployment instantly
+  preserveEnvVars: true  # Use current env vars even when rolling back code
