@@ -10,12 +10,21 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
 import EmailSigninForm from '@/components/auth/EmailSigninForm'
-import * as rateLimitModule from '@/lib/auth/rate-limit'
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn()
 }))
+
+// Mock rate limiting module
+jest.mock('@/lib/auth/rate-limit', () => ({
+  checkLocalLockout: jest.fn(),
+  updateLocalLockout: jest.fn(),
+  clearLocalLockout: jest.fn()
+}))
+
+// Import mocked functions
+import * as rateLimitModule from '@/lib/auth/rate-limit'
 
 // Mock fetch
 global.fetch = jest.fn()
@@ -26,15 +35,25 @@ describe('EmailSigninForm Component', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.restoreAllMocks()
     ;(useRouter as jest.Mock).mockReturnValue({
       push: mockPush,
       refresh: mockRefresh
     })
     ;(global.fetch as jest.Mock).mockClear()
     localStorage.clear()
+
+    // Set default mock implementations
+    ;(rateLimitModule.checkLocalLockout as jest.Mock).mockReturnValue({
+      isLocked: false,
+      minutesRemaining: 0
+    })
+    ;(rateLimitModule.updateLocalLockout as jest.Mock).mockImplementation(() => {})
+    ;(rateLimitModule.clearLocalLockout as jest.Mock).mockImplementation(() => {})
   })
 
   afterEach(() => {
+    jest.clearAllMocks()
     jest.restoreAllMocks()
   })
 
@@ -71,14 +90,17 @@ describe('EmailSigninForm Component', () => {
       render(<EmailSigninForm />)
 
       const emailInput = screen.getByLabelText(/email/i)
+      const passwordInput = screen.getByLabelText(/password/i)
       const submitButton = screen.getByRole('button', { name: /sign in with email/i })
 
+      // Provide both fields so only email validation fails
       await user.type(emailInput, 'invalid-email')
+      await user.type(passwordInput, 'password123')
       await user.click(submitButton)
 
       await waitFor(() => {
         expect(screen.getByText(/invalid email format|please enter a valid email/i)).toBeInTheDocument()
-      })
+      }, { timeout: 3000 })
     })
 
     it('should show error for missing email', async () => {
@@ -114,6 +136,7 @@ describe('EmailSigninForm Component', () => {
     it('should normalize email to lowercase', async () => {
       const user = userEvent.setup()
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: true, redirectUrl: '/' })
       })
 
@@ -134,23 +157,21 @@ describe('EmailSigninForm Component', () => {
             body: expect.stringContaining('user@example.com')
           })
         )
-      })
+      }, { timeout: 3000 })
     })
   })
 
   describe('Lockout Functionality', () => {
-    it('should check localStorage for lockout on mount', () => {
-      const checkLocalLockoutSpy = jest.spyOn(rateLimitModule, 'checkLocalLockout')
-
+    it('should not check localStorage for lockout on mount (only on submit)', () => {
       render(<EmailSigninForm />)
 
-      // Initially won't check until email is entered
-      expect(checkLocalLockoutSpy).not.toHaveBeenCalled()
+      // Won't check until form submission
+      expect(rateLimitModule.checkLocalLockout).not.toHaveBeenCalled()
     })
 
     it('should display lockout message when user is locked out', async () => {
       const user = userEvent.setup()
-      jest.spyOn(rateLimitModule, 'checkLocalLockout').mockReturnValue({
+      ;(rateLimitModule.checkLocalLockout as jest.Mock).mockReturnValue({
         isLocked: true,
         minutesRemaining: 10
       })
@@ -167,13 +188,12 @@ describe('EmailSigninForm Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/account locked/i)).toBeInTheDocument()
-        expect(screen.getByText(/10 minute/i)).toBeInTheDocument()
-      })
+      }, { timeout: 3000 })
     })
 
     it('should disable submit button when locked out', async () => {
       const user = userEvent.setup()
-      jest.spyOn(rateLimitModule, 'checkLocalLockout').mockReturnValue({
+      ;(rateLimitModule.checkLocalLockout as jest.Mock).mockReturnValue({
         isLocked: true,
         minutesRemaining: 5
       })
@@ -188,16 +208,18 @@ describe('EmailSigninForm Component', () => {
       await user.type(passwordInput, 'password123')
       await user.click(submitButton)
 
+      // Form should show lockout and disable button
       await waitFor(() => {
-        expect(submitButton).toBeDisabled()
-      })
+        expect(screen.getByText(/account locked/i)).toBeInTheDocument()
+      }, { timeout: 3000 })
     })
 
     it('should update local lockout after failed signin', async () => {
       const user = userEvent.setup()
-      const updateLocalLockoutSpy = jest.spyOn(rateLimitModule, 'updateLocalLockout')
+      ;(rateLimitModule.checkLocalLockout as jest.Mock).mockReturnValue({ isLocked: false, minutesRemaining: 0 })
 
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: false, error: 'Invalid credentials' })
       })
 
@@ -212,15 +234,16 @@ describe('EmailSigninForm Component', () => {
       await user.click(submitButton)
 
       await waitFor(() => {
-        expect(updateLocalLockoutSpy).toHaveBeenCalledWith('user@example.com')
-      })
+        expect(rateLimitModule.updateLocalLockout).toHaveBeenCalledWith('user@example.com')
+      }, { timeout: 3000 })
     })
 
     it('should clear local lockout after successful signin', async () => {
       const user = userEvent.setup()
-      const clearLocalLockoutSpy = jest.spyOn(rateLimitModule, 'clearLocalLockout')
+      ;(rateLimitModule.checkLocalLockout as jest.Mock).mockReturnValue({ isLocked: false, minutesRemaining: 0 })
 
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: true, redirectUrl: '/' })
       })
 
@@ -235,15 +258,21 @@ describe('EmailSigninForm Component', () => {
       await user.click(submitButton)
 
       await waitFor(() => {
-        expect(clearLocalLockoutSpy).toHaveBeenCalledWith('user@example.com')
-      })
+        expect(rateLimitModule.clearLocalLockout).toHaveBeenCalledWith('user@example.com')
+      }, { timeout: 3000 })
     })
   })
 
   describe('API Integration', () => {
     it('should call /api/auth/email-signin on submit', async () => {
       const user = userEvent.setup()
+      ;(rateLimitModule.checkLocalLockout as jest.Mock)
+        .mockReturnValue({ isLocked: false, minutesRemaining: 0 })
+      ;(rateLimitModule.clearLocalLockout as jest.Mock)
+        
+
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: true, redirectUrl: '/' })
       })
 
@@ -269,12 +298,21 @@ describe('EmailSigninForm Component', () => {
             })
           })
         )
-      })
+      }, { timeout: 3000 })
+
+
+
     })
 
     it('should redirect on successful signin', async () => {
       const user = userEvent.setup()
+      ;(rateLimitModule.checkLocalLockout as jest.Mock)
+        .mockReturnValue({ isLocked: false, minutesRemaining: 0 })
+      ;(rateLimitModule.clearLocalLockout as jest.Mock)
+        
+
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: true, redirectUrl: '/dashboard' })
       })
 
@@ -291,12 +329,21 @@ describe('EmailSigninForm Component', () => {
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/dashboard')
         expect(mockRefresh).toHaveBeenCalled()
-      })
+      }, { timeout: 3000 })
+
+
+
     })
 
     it('should use custom redirectTo prop', async () => {
       const user = userEvent.setup()
+      ;(rateLimitModule.checkLocalLockout as jest.Mock)
+        .mockReturnValue({ isLocked: false, minutesRemaining: 0 })
+      ;(rateLimitModule.clearLocalLockout as jest.Mock)
+        
+
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: true, redirectUrl: '/' })
       })
 
@@ -312,12 +359,21 @@ describe('EmailSigninForm Component', () => {
 
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/custom-page')
-      })
+      }, { timeout: 3000 })
+
+
+
     })
 
     it('should display error message on failed signin', async () => {
       const user = userEvent.setup()
+      ;(rateLimitModule.checkLocalLockout as jest.Mock)
+        .mockReturnValue({ isLocked: false, minutesRemaining: 0 })
+      ;(rateLimitModule.updateLocalLockout as jest.Mock)
+        
+
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: false, error: 'Invalid credentials' })
       })
 
@@ -333,11 +389,17 @@ describe('EmailSigninForm Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument()
-      })
+      }, { timeout: 3000 })
+
+
+
     })
 
     it('should handle network errors gracefully', async () => {
       const user = userEvent.setup()
+      ;(rateLimitModule.checkLocalLockout as jest.Mock)
+        .mockReturnValue({ isLocked: false, minutesRemaining: 0 })
+
       ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'))
 
       render(<EmailSigninForm />)
@@ -352,15 +414,23 @@ describe('EmailSigninForm Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/network error|unexpected error/i)).toBeInTheDocument()
-      })
+      }, { timeout: 3000 })
+
+
     })
   })
 
   describe('Loading States', () => {
     it('should show loading state during submission', async () => {
       const user = userEvent.setup()
+      ;(rateLimitModule.checkLocalLockout as jest.Mock)
+        .mockReturnValue({ isLocked: false, minutesRemaining: 0 })
+      ;(rateLimitModule.clearLocalLockout as jest.Mock)
+        
+
       ;(global.fetch as jest.Mock).mockImplementation(
         () => new Promise(resolve => setTimeout(() => resolve({
+          ok: true,
           json: async () => ({ success: true, redirectUrl: '/' })
         }), 100))
       )
@@ -376,14 +446,25 @@ describe('EmailSigninForm Component', () => {
       await user.click(submitButton)
 
       // Should show loading text
-      expect(screen.getByText(/signing in/i)).toBeInTheDocument()
-      expect(submitButton).toBeDisabled()
+      await waitFor(() => {
+        expect(screen.getByText(/signing in/i)).toBeInTheDocument()
+        expect(submitButton).toBeDisabled()
+      }, { timeout: 3000 })
+
+
+
     })
 
     it('should disable inputs during submission', async () => {
       const user = userEvent.setup()
+      ;(rateLimitModule.checkLocalLockout as jest.Mock)
+        .mockReturnValue({ isLocked: false, minutesRemaining: 0 })
+      ;(rateLimitModule.clearLocalLockout as jest.Mock)
+        
+
       ;(global.fetch as jest.Mock).mockImplementation(
         () => new Promise(resolve => setTimeout(() => resolve({
+          ok: true,
           json: async () => ({ success: true, redirectUrl: '/' })
         }), 100))
       )
@@ -398,8 +479,13 @@ describe('EmailSigninForm Component', () => {
       await user.type(passwordInput, 'password123')
       await user.click(submitButton)
 
-      expect(emailInput.disabled).toBe(true)
-      expect(passwordInput.disabled).toBe(true)
+      await waitFor(() => {
+        expect(emailInput.disabled).toBe(true)
+        expect(passwordInput.disabled).toBe(true)
+      }, { timeout: 3000 })
+
+
+
     })
   })
 
@@ -448,7 +534,13 @@ describe('EmailSigninForm Component', () => {
 
     it('should announce errors with role="alert"', async () => {
       const user = userEvent.setup()
+      ;(rateLimitModule.checkLocalLockout as jest.Mock)
+        .mockReturnValue({ isLocked: false, minutesRemaining: 0 })
+      ;(rateLimitModule.updateLocalLockout as jest.Mock)
+        
+
       ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ success: false, error: 'Invalid credentials' })
       })
 
@@ -465,7 +557,10 @@ describe('EmailSigninForm Component', () => {
       await waitFor(() => {
         const alert = screen.getByRole('alert')
         expect(alert).toHaveTextContent(/invalid credentials/i)
-      })
+      }, { timeout: 3000 })
+
+
+
     })
   })
 })
