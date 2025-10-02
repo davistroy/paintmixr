@@ -15,6 +15,7 @@ import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { validateServerAuth } from '@/lib/auth/supabase-server'
 import SignInButton from '@/components/auth/SignInButton'
+import EmailSigninForm from '@/components/auth/EmailSigninForm'
 
 export const metadata = {
   title: 'Sign In - PaintMixr',
@@ -82,6 +83,21 @@ export default async function SignInPage({
             />
           </div>
 
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-white dark:bg-gray-800 px-2 text-gray-500">
+                Or continue with email
+              </span>
+            </div>
+          </div>
+
+          {/* Email/Password Form */}
+          <EmailSigninForm redirectTo={searchParams.redirect} />
+
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
@@ -144,7 +160,9 @@ function getErrorMessage(errorCode: string): string {
     invalid_credentials: 'Invalid credentials. Please try again.',
     account_suspended: 'Your account has been suspended. Contact support.',
     email_not_verified: 'Please verify your email address.',
-    rate_limit_exceeded: 'Too many sign-in attempts. Please try again later.'
+    rate_limit_exceeded: 'Too many sign-in attempts. Please try again later.',
+    account_locked: 'Account temporarily locked. Please try again in 15-30 minutes.',
+    oauth_precedence: 'This email is linked to a social login. Please use that method.'
   }
 
   return (

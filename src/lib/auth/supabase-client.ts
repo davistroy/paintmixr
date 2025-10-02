@@ -214,5 +214,40 @@ export async function exchangeCodeForSession(code: string) {
   return { session, error: null }
 }
 
+/**
+ * Sign in with email and password
+ *
+ * Authenticates a user using email/password credentials.
+ * Email is normalized to lowercase before authentication.
+ *
+ * @param email - User's email address (will be normalized to lowercase)
+ * @param password - User's password
+ * @returns Promise with session/user data or error
+ */
+export async function signInWithEmailPassword(
+  email: string,
+  password: string
+) {
+  const supabase = createClient()
+
+  // Normalize email to lowercase for consistency
+  const normalizedEmail = email.toLowerCase().trim()
+
+  const {
+    data: { session, user },
+    error
+  } = await supabase.auth.signInWithPassword({
+    email: normalizedEmail,
+    password
+  })
+
+  if (error) {
+    console.error('Email/password sign-in error:', error)
+    return { session: null, user: null, error }
+  }
+
+  return { session, user, error: null }
+}
+
 // Export singleton instance for convenience
 export const supabase = createClient()
