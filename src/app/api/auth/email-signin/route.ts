@@ -25,6 +25,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@/lib/supabase/admin'
+import { createClient as createRouteClient } from '@/lib/supabase/route-handler'
 import { emailSigninSchema } from '@/lib/auth/validation'
 import { checkRateLimit, recordAuthAttempt } from '@/lib/auth/rate-limit'
 import {
@@ -163,8 +164,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Attempt password authentication
-    const { error: signInError } = await adminClient.auth.signInWithPassword({
+    // Attempt password authentication using route client (sets session cookies)
+    const routeClient = await createRouteClient()
+    const { error: signInError } = await routeClient.auth.signInWithPassword({
       email,
       password
     })
