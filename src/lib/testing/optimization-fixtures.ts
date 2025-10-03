@@ -22,26 +22,15 @@ export function createTestPaint(
       hex: '#000000', // Default hex, can be overridden
       lab,
     },
-    volume_ml: 100,
-    cost_per_ml: 0.1,
     opacity: 1,
-    finish_type: 'matte',
-    pigment_composition: [],
-    kubelka_munk_coefficients: {
-      scattering_coefficient: 0.5,
-      absorption_coefficient: 0.5,
+    tintingStrength: 0.8,
+    kubelkaMunk: {
+      k: 0.5,
+      s: 0.5,
     },
-    user_id: 'test-user',
-    collection_id: 'test-collection',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    archived: false,
-    color_accuracy_verified: true,
-    optical_properties_calibrated: true,
-    times_used: 0,
-    last_used_at: null,
-    version: 1,
-    tags: [],
+    userId: 'test-user',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     ...overrides,
   };
 }
@@ -50,12 +39,12 @@ export function createTestPaint(
  * Standard test paint palette
  */
 export const TEST_PAINTS = {
-  WHITE: createTestPaint('white-1', 'Titanium White', { L: 95, a: 0, b: 0 }),
-  BLACK: createTestPaint('black-1', 'Carbon Black', { L: 10, a: 0, b: 0 }),
-  RED: createTestPaint('red-1', 'Cadmium Red', { L: 45, a: 65, b: 45 }),
-  BLUE: createTestPaint('blue-1', 'Ultramarine Blue', { L: 35, a: 15, b: -55 }),
-  YELLOW: createTestPaint('yellow-1', 'Cadmium Yellow', { L: 80, a: 5, b: 85 }),
-  GREEN: createTestPaint('green-1', 'Phthalo Green', { L: 45, a: -50, b: 25 }),
+  WHITE: createTestPaint('white-1', 'Titanium White', { l: 95, a: 0, b: 0 }),
+  BLACK: createTestPaint('black-1', 'Carbon Black', { l: 10, a: 0, b: 0 }),
+  RED: createTestPaint('red-1', 'Cadmium Red', { l: 45, a: 65, b: 45 }),
+  BLUE: createTestPaint('blue-1', 'Ultramarine Blue', { l: 35, a: 15, b: -55 }),
+  YELLOW: createTestPaint('yellow-1', 'Cadmium Yellow', { l: 80, a: 5, b: 85 }),
+  GREEN: createTestPaint('green-1', 'Phthalo Green', { l: 45, a: -50, b: 25 }),
 };
 
 /**
@@ -75,20 +64,20 @@ export const STANDARD_PALETTE: Paint[] = [
 export const EXTENDED_PALETTE: Paint[] = [
   ...STANDARD_PALETTE,
   TEST_PAINTS.GREEN,
-  createTestPaint('orange-1', 'Cadmium Orange', { L: 60, a: 45, b: 70 }),
-  createTestPaint('purple-1', 'Dioxazine Purple', { L: 25, a: 35, b: -45 }),
+  createTestPaint('orange-1', 'Cadmium Orange', { l: 60, a: 45, b: 70 }),
+  createTestPaint('purple-1', 'Dioxazine Purple', { l: 25, a: 35, b: -45 }),
 ];
 
 /**
  * Common target colors for testing
  */
 export const TARGET_COLORS = {
-  MID_GRAY: { L: 50, a: 0, b: 0 } as LABColor,
-  WARM_GRAY: { L: 50, a: 5, b: 10 } as LABColor,
-  COOL_GRAY: { L: 50, a: -5, b: -10 } as LABColor,
-  SKIN_TONE: { L: 65, a: 15, b: 25 } as LABColor,
-  OLIVE_GREEN: { L: 40, a: -20, b: 30 } as LABColor,
-  NAVY_BLUE: { L: 20, a: 10, b: -30 } as LABColor,
+  MID_GRAY: { l: 50, a: 0, b: 0 } as LABColor,
+  WARM_GRAY: { l: 50, a: 5, b: 10 } as LABColor,
+  COOL_GRAY: { l: 50, a: -5, b: -10 } as LABColor,
+  SKIN_TONE: { l: 65, a: 15, b: 25 } as LABColor,
+  OLIVE_GREEN: { l: 40, a: -20, b: 30 } as LABColor,
+  NAVY_BLUE: { l: 20, a: 10, b: -30 } as LABColor,
 };
 
 /**
