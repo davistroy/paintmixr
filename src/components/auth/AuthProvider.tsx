@@ -16,7 +16,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { onAuthStateChange } from '@/lib/auth/supabase-client'
+import { onAuthStateChange } from '@/lib/supabase/client'
 import type { User, Session } from '@supabase/supabase-js'
 
 /**
@@ -117,7 +117,7 @@ export function AuthProvider({
    * Sign out handler
    */
   const handleSignOut = async () => {
-    const { signOut } = await import('@/lib/auth/supabase-client')
+    const { signOut } = await import('@/lib/supabase/client')
 
     try {
       const { error } = await signOut()

@@ -148,11 +148,38 @@ npm start
 
 ## Technology Stack
 
-- **Framework**: Next.js 15 with App Router
+- **Framework**: Next.js 14.2.33 with App Router (Next.js 15 compatible)
 - **Database**: Supabase (PostgreSQL)
 - **Styling**: Tailwind CSS
 - **Color Science**: CIE LAB, Delta E 2000
 - **Optimization**: Differential Evolution, TPE Hybrid
+- **TypeScript**: Strict mode enabled (all flags)
+- **Authentication**: Modern @supabase/ssr package
+
+## Recent Updates
+
+### Feature 005: Codebase Analysis & Technical Debt Resolution (2025-10-02)
+
+**Critical Improvements**:
+- **TypeScript Strict Mode**: All strict compiler flags enabled (`strict`, `strictNullChecks`, `noImplicitAny`)
+- **N+1 Query Fix**: Authentication lookups optimized from O(n) to O(1) using `.eq()` filters
+- **SSR-Safe Patterns**: Proper `mounted` flag for localStorage access in client components
+- **Modern Supabase Clients**: Migrated to `@supabase/ssr` package (cookie-based sessions)
+- **Centralized Types**: Single source of truth at `/src/lib/types/index.ts`
+
+**Security Enhancements**:
+- Atomic lockout counter prevents race conditions in failed auth attempts
+- OAuth precedence detection blocks email/password signin for OAuth accounts
+- Rate limiting with sliding window (5 attempts per 15 minutes)
+- Lockout timer resets to full 15 minutes on attempts during lockout period
+
+**Code Quality**:
+- Shared utilities for API calls, validation, and testing
+- Component size standards (<300 lines)
+- Next.js 15 async searchParams compatibility
+- 90%+ test coverage target for critical paths
+
+For detailed implementation notes, see `IMPLEMENTATION_STATUS.md` and `CLAUDE.md`.
 
 ## Contributing
 

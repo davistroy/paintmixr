@@ -1,7 +1,6 @@
 import {
   OptimizationRequest,
-  OptimizationResult,
-  ProgressUpdate
+  OptimizationResult
 } from './color-optimization.worker';
 
 export interface OptimizationClientConfig {
@@ -410,7 +409,7 @@ export class OptimizationClient {
   }
 
   async healthCheck(): Promise<{ healthy_workers: number; total_workers: number }> {
-    const healthPromises = Array.from(this.workers.entries()).map(async ([workerId, workerInstance]) => {
+    const healthPromises = Array.from(this.workers.entries()).map(async ([_workerId, workerInstance]) => {
       return new Promise<boolean>((resolve) => {
         const timeout = setTimeout(() => resolve(false), 1000);
 

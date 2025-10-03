@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type {
-  RatioPredictRequest,
   RatioPredictResponse,
   ErrorResponse,
   ColorValue,

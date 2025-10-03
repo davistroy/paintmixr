@@ -5,8 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { LABColor } from '@/lib/color-science/types';
-import { calculateDeltaE } from '@/lib/color-science/delta-e';
-import { convertHexToLAB, convertRGBtoLAB } from '@/lib/color-science/color-utils';
+import { hexToLab, rgbToLab } from '@/lib/color-science';
 
 interface LegacyColorRequest {
   target_color_hex?: string;
@@ -35,9 +34,9 @@ export class AccuracyComparisonMiddleware {
     let targetColor: LABColor;
 
     if (legacyRequest.target_color_hex) {
-      targetColor = convertHexToLAB(legacyRequest.target_color_hex);
+      targetColor = hexToLab(legacyRequest.target_color_hex);
     } else if (legacyRequest.target_color_rgb) {
-      targetColor = convertRGBtoLAB(legacyRequest.target_color_rgb);
+      targetColor = rgbToLab(legacyRequest.target_color_rgb);
     } else {
       throw new Error('No valid target color provided in legacy request');
     }

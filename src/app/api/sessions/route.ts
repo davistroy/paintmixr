@@ -48,13 +48,13 @@ export async function GET(request: NextRequest) {
         limit: validatedParams.limit,
         offset: validatedParams.offset,
         favorites_only: validatedParams.favorites_only,
-        session_type: validatedParams.session_type,
+        session_type: validatedParams.session_type ?? undefined,
       })
 
       const response: SessionListResponse = {
         sessions: result.sessions,
         total_count: result.total_count,
-        has_next: result.has_more,
+        has_more: result.has_more,
       }
 
       return NextResponse.json(response)
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
         const response: SessionListResponse = {
           sessions: paginatedSessions,
           total_count: filteredSessions.length,
-          has_next: end < filteredSessions.length,
+          has_more: end < filteredSessions.length,
         }
 
         return NextResponse.json(response)

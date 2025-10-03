@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/database/supabase-client';
+import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { z } from 'zod';
 
@@ -71,7 +71,7 @@ async function getCurrentUser(supabase: any) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     // Parse query parameters
@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     const body = await request.json();
@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
 // Analytics endpoint for dashboard metrics
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     const url = new URL(request.url);

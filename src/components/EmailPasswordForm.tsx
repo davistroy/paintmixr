@@ -18,6 +18,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 import { checkLocalLockout, clearLocalLockout } from '@/lib/auth/rate-limit'
+import { apiPost } from '@/lib/api/client'
+import { emailSchema } from '@/lib/forms/schemas'
 
 interface EmailPasswordFormProps {
   mode: 'login' | 'signup'
@@ -27,20 +29,14 @@ interface EmailPasswordFormProps {
 
 // Login validation schema - simpler validation for login
 const loginSchema = z.object({
-  email: z
-    .string()
-    .min(1, 'Email is required')
-    .email('Please enter a valid email address'),
+  email: emailSchema,
   password: z.string().min(1, 'Password is required')
 })
 
 // Signup validation schema with password confirmation and stronger requirements
 const signupSchema = z
   .object({
-    email: z
-      .string()
-      .min(1, 'Email is required')
-      .email('Please enter a valid email address'),
+    email: emailSchema,
     password: z
       .string()
       .min(8, 'Password must be at least 8 characters'),
@@ -117,23 +113,20 @@ export default function EmailPasswordForm({
               password: (data as SignupFormData).password
             }
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
+      const response = await apiPost<{ success: boolean; lockedUntil?: string; error?: string }>(
+        endpoint,
+        payload
+      )
 
-      const result = await response.json()
-
-      if (response.ok) {
+      if (response.data?.success || !response.error) {
         // Success - clear form and lockout
         clearLocalLockout(data.email)
         reset()
         onSuccess()
       } else {
         // Check if lockout error
-        if (result.lockedUntil) {
-          const lockoutTime = new Date(result.lockedUntil)
+        if (response.data?.lockedUntil) {
+          const lockoutTime = new Date(response.data.lockedUntil)
           const now = new Date()
           const minutesRemaining = Math.ceil(
             (lockoutTime.getTime() - now.getTime()) / 60000
@@ -142,7 +135,11 @@ export default function EmailPasswordForm({
           setLockoutMinutes(minutesRemaining)
         }
 
-        onError(result.error || 'Authentication failed')
+        onError(
+          response.error?.message ||
+          response.data?.error ||
+          'Authentication failed'
+        )
       }
     } catch (error) {
       onError(
@@ -157,7 +154,7 @@ export default function EmailPasswordForm({
   const loadingText = mode === 'login' ? 'Signing in...' : 'Signing up...'
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+    <form onSubmit={handleSubmit(onSubmit as any)} noValidate>
       {/* Lockout Message */}
       {isLocked && (
         <div
@@ -200,7 +197,7 @@ export default function EmailPasswordForm({
             role="alert"
             className="mt-1 text-sm text-red-600 dark:text-red-400"
           >
-            {errors.email.message}
+            {String(errors.email.message)}
           </p>
         )}
       </div>
@@ -233,7 +230,7 @@ export default function EmailPasswordForm({
             role="alert"
             className="mt-1 text-sm text-red-600 dark:text-red-400"
           >
-            {errors.password.message}
+            {String(errors.password.message)}
           </p>
         )}
       </div>
@@ -271,7 +268,7 @@ export default function EmailPasswordForm({
               role="alert"
               className="mt-1 text-sm text-red-600 dark:text-red-400"
             >
-              {errors.confirmPassword.message}
+              {String(errors.confirmPassword.message)}
             </p>
           )}
         </div>

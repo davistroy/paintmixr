@@ -1,0 +1,27 @@
+{
+  "timestamp": "2025-10-03T00:01:49.101Z",
+  "placeholders": {
+    "__tests__/unit/rate-limit.test.ts": [
+      "2 tests with expect(true).toBe(true)"
+    ],
+    "__tests__/integration/test-coverage.test.ts": [
+      "1 tests with console.log but no assertions"
+    ],
+    "__tests__/integration/shared-utilities-usage.test.ts": [
+      "7 tests with console.log but no assertions"
+    ],
+    "__tests__/integration/placeholder-tests.test.ts": [
+      "5 tests with expect(true).toBe(true)",
+      "1 tests with console.log but no assertions"
+    ],
+    "__tests__/integration/component-size.test.ts": [
+      "3 tests with console.log but no assertions"
+    ],
+    "__tests__/integration/build-performance.test.ts": [
+      "1 tests with console.log but no assertions"
+    ],
+    "__tests__/contract/build-enforcement.test.ts": [
+      "1 tests with console.log but no assertions"
+    ]
+  }
+}

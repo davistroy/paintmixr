@@ -5,10 +5,10 @@
 
 import { TPEHybridOptimizer } from '../tpe-hybrid';
 import { LABColor } from '@/lib/color-science/types';
-import { PaintEntry } from '@/lib/database/types';
+import { EnhancedPaintRow } from '@/lib/database/database.types';
 
 // Reuse mock paint data (subset for focused testing)
-const mockPaints: PaintEntry[] = [
+const mockPaints: EnhancedPaintRow[] = [
   {
     id: 'paint-1',
     name: 'Titanium White',

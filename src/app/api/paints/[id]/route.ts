@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/database/supabase-client';
+import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { EnhancedPaintUpdateSchema } from '@/lib/database/models/enhanced-paint';
 import { z } from 'zod';
@@ -15,11 +15,11 @@ async function getCurrentUser(supabase: any) {
 const PaintIdSchema = z.string().uuid('Invalid paint ID format');
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     // Validate paint ID
@@ -90,7 +90,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     // Validate paint ID
@@ -102,7 +102,7 @@ export async function PATCH(
     const updateData = EnhancedPaintUpdateSchema.parse(body);
 
     const repository = new EnhancedPaintRepository(supabase);
-    const result = await repository.updatePaint(paintId, user.id, updateData);
+    const result = await repository.updatePaint(paintId, user.id, updateData as any);
 
     if (result.error) {
       return NextResponse.json(
@@ -159,7 +159,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     // Validate paint ID

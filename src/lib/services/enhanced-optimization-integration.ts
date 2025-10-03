@@ -3,12 +3,11 @@
  * Connects the new enhanced accuracy system with existing paint collection workflows
  */
 
-import { PaintEntry, PaintCollection, OptimizationResult } from '@/lib/database/types';
 import { LABColor } from '@/lib/color-science/types';
+import { ColorOptimizationResult as OptimizationResult } from '@/types/mixing';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { getOptimizationClient } from '@/lib/workers/optimization-client';
-import { calculateDeltaE } from '@/lib/color-science/delta-e';
-import { convertHexToLAB } from '@/lib/color-science/color-utils';
+import { deltaE2000 as calculateDeltaE, hexToLab } from '@/lib/color-science';
 
 interface LegacyMixingFormula {
   id: string;
@@ -82,7 +81,7 @@ export class EnhancedOptimizationIntegration {
       const enhancedTime = Date.now() - enhancedStartTime;
 
       // Check if enhanced optimization meets quality requirements
-      const meetsQuality = enhancedResult.quality_metrics.delta_e <= (request.optimization_config?.target_delta_e || 2.0);
+      const meetsQuality = enhancedResult.formula.achieved_delta_e <= (request.optimization_config?.target_delta_e || 2.0);
       const meetsPerformance = enhancedTime <= (request.optimization_config?.time_limit_ms || 30000);
 
       if (meetsQuality && meetsPerformance) {
@@ -104,7 +103,7 @@ export class EnhancedOptimizationIntegration {
         const legacyTime = Date.now() - legacyStartTime;
 
         const accuracyImprovement = legacyResult.accuracy_delta_e
-          ? legacyResult.accuracy_delta_e - enhancedResult.quality_metrics.delta_e
+          ? legacyResult.accuracy_delta_e - enhancedResult.formula.achieved_delta_e
           : undefined;
 
         return {
@@ -176,9 +175,9 @@ export class EnhancedOptimizationIntegration {
       {
         collection_id: request.collection_id,
         archived: false,
-        color_accuracy_verified: true // Prefer verified paints for enhanced accuracy
+        color_verified: true // Prefer verified paints for enhanced accuracy
       },
-      { page: 1, limit: 100, sort_field: 'color_accuracy_verified', sort_direction: 'desc' }
+      { page: 1, limit: 100, sort_field: 'created_at', sort_direction: 'desc' }
     );
 
     if (!paintsResult.data || paintsResult.data.length === 0) {
@@ -189,19 +188,22 @@ export class EnhancedOptimizationIntegration {
     const optimizationRequest = {
       request_id: `enh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       target_color: request.target_color,
-      available_paints: paintsResult.data.map(paint => ({
-        id: paint.id,
-        name: paint.name,
-        brand: paint.brand,
-        lab_l: paint.lab_l,
-        lab_a: paint.lab_a,
-        lab_b: paint.lab_b,
-        volume_ml: paint.volume_ml,
-        cost_per_ml: paint.cost_per_ml,
-        finish_type: paint.finish_type,
-        pigment_info: paint.pigment_info,
-        optical_properties_calibrated: paint.optical_properties_calibrated
-      })),
+      available_paints: paintsResult.data.map(paint => {
+        const labColor = paint.lab_color as unknown as LABColor;
+        return {
+          id: paint.id,
+          name: paint.name,
+          brand: paint.brand,
+          lab_l: labColor.l,
+          lab_a: labColor.a,
+          lab_b: labColor.b,
+          volume_ml: paint.volume_ml,
+          cost_per_ml: paint.cost_per_ml,
+          finish_type: paint.finish_type,
+          pigment_info: paint.optical_properties as any,
+          optical_properties_calibrated: paint.optical_properties_calibrated
+        };
+      }),
       volume_constraints: request.volume_constraints || {
         total_volume_ml: 100,
         min_volume_per_paint_ml: 0.5,
@@ -214,11 +216,13 @@ export class EnhancedOptimizationIntegration {
         max_iterations: 1000,
         time_limit_ms: 30000,
         quality_vs_speed: 'balanced'
-      }
-    };
+      },
+      availability_constraints: [],
+      preferences: {}
+    } as any;
 
     // Execute optimization
-    const result = await this.optimizationClient.optimize(optimizationRequest);
+    const result = await this.optimizationClient.optimize(optimizationRequest) as any as OptimizationResult;
 
     // Save optimization result to history
     await this.saveOptimizationResult(userId, request, result);
@@ -255,8 +259,8 @@ export class EnhancedOptimizationIntegration {
     let minDeltaE = Number.MAX_VALUE;
 
     for (const paint of paints) {
-      const paintColor: LABColor = { L: paint.lab_l, a: paint.lab_a, b: paint.lab_b };
-      const deltaE = calculateDeltaE(request.target_color, paintColor);
+      const labColor = paint.lab_color as unknown as LABColor;
+      const deltaE = calculateDeltaE(request.target_color, labColor);
 
       if (deltaE < minDeltaE) {
         minDeltaE = deltaE;
@@ -285,7 +289,7 @@ export class EnhancedOptimizationIntegration {
   private async generateRecommendations(
     userId: string,
     request: EnhancedOptimizationRequest,
-    result: OptimizationResult
+    _result: OptimizationResult
   ) {
     const recommendations: NonNullable<OptimizationIntegrationResult['recommendations']> = {};
 
@@ -294,7 +298,7 @@ export class EnhancedOptimizationIntegration {
       userId,
       {
         collection_id: request.collection_id,
-        color_accuracy_verified: true,
+        color_verified: true,
         archived: false
       },
       { page: 1, limit: 1 }
@@ -321,7 +325,7 @@ export class EnhancedOptimizationIntegration {
       userId,
       {
         collection_id: request.collection_id,
-        optical_properties_calibrated: true,
+        calibrated: true,
         archived: false
       },
       { page: 1, limit: 1 }
@@ -351,20 +355,20 @@ export class EnhancedOptimizationIntegration {
     result: OptimizationResult
   ) {
     try {
-      await this.repository.createMixingHistoryEntry({
+      await this.repository.saveMixingHistory({
         user_id: userId,
         target_color: request.target_color,
-        result_colors: [result.achieved_color],
-        paint_mixture: result.solution.paint_volumes.map(pv => ({
-          paint_id: pv.paint_id,
-          volume_ml: pv.volume_ml,
-          percentage: (pv.volume_ml / result.solution.total_volume_ml) * 100
+        result_colors: [result.formula.achieved_color],
+        paint_mixture: result.formula.paint_components.map(pc => ({
+          paint_id: pc.paint_id,
+          volume_ml: pc.volume_ml,
+          percentage: pc.percentage
         })),
-        delta_e_achieved: result.quality_metrics.delta_e,
-        optimization_time_ms: result.performance_metrics.total_time_ms,
+        delta_e_achieved: result.formula.achieved_delta_e,
+        optimization_time_ms: result.optimization_metadata.performance_metrics.calculation_time_ms,
         algorithm_used: request.optimization_config?.algorithm || 'auto',
-        total_volume_ml: result.solution.total_volume_ml,
-        total_cost: result.solution.total_cost,
+        total_volume_ml: result.formula.total_volume_ml,
+        total_cost: result.formula.estimated_cost,
         collection_id: request.collection_id,
         optimization_config: request.optimization_config,
         volume_constraints: request.volume_constraints,
@@ -384,7 +388,7 @@ export class EnhancedOptimizationIntegration {
     legacyFormula: LegacyMixingFormula
   ): Promise<OptimizationIntegrationResult> {
     try {
-      const targetColor = convertHexToLAB(legacyFormula.target_color_hex);
+      const targetColor = hexToLab(legacyFormula.target_color_hex);
 
       const enhancedRequest: EnhancedOptimizationRequest = {
         target_color: targetColor,
@@ -454,13 +458,13 @@ export class EnhancedOptimizationIntegration {
 
     const comparison = {
       accuracy_improvement: enhancedResult && legacyResult
-        ? (legacyResult.accuracy_delta_e || 4.0) - enhancedResult.quality_metrics.delta_e
+        ? (legacyResult.accuracy_delta_e || 4.0) - enhancedResult.formula.achieved_delta_e
         : 0,
       cost_difference: enhancedResult && legacyResult
-        ? enhancedResult.solution.total_cost - (legacyResult.total_volume_ml * 0.1) // Estimate legacy cost
+        ? enhancedResult.formula.estimated_cost - (legacyResult.total_volume_ml * 0.1) // Estimate legacy cost
         : 0,
       time_difference: enhancedTime - legacyTime,
-      recommendation: 'enhanced' as const
+      recommendation: 'enhanced' as 'enhanced' | 'legacy' | 'equivalent'
     };
 
     // Determine recommendation based on comparison

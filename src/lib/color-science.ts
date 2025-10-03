@@ -89,9 +89,9 @@ export function xyzToLab(xyz: XYZColor): LABColor {
   const zn = 108.883
 
   // Normalize by reference white
-  let x = xyz.x / xn
-  let y = xyz.y / yn
-  let z = xyz.z / zn
+  const x = xyz.x / xn
+  const y = xyz.y / yn
+  const z = xyz.z / zn
 
   // Apply LAB transformation
   const fx = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x + 16/116)

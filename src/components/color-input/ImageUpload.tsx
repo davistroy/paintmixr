@@ -1,7 +1,9 @@
 'use client'
 
 import React, { useState, useRef, useCallback } from 'react'
-import type { ColorValue, ImageColorExtractionResponse } from '@/types/types'
+import type { ColorValue } from '@/lib/types'
+import type { ImageColorExtractionResponse } from '@/types/types'
+import { apiPost } from '@/lib/api/client'
 
 interface ImageUploadProps {
   onColorExtracted: (color: ColorValue) => void
@@ -56,25 +58,24 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   }
 
   const extractColorFromAPI = async (imageData: string, method: 'dominant' | 'average' | 'point', coordinates?: { x: number; y: number }) => {
-    const response = await fetch('/api/image/extract-color', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const response = await apiPost<ImageColorExtractionResponse>(
+      '/api/image/extract-color',
+      {
         image_data: imageData,
         extraction_method: method,
         coordinates,
-      }),
-    })
+      }
+    )
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || 'Failed to extract color')
+    if (response.error) {
+      throw new Error(response.error.message || 'Failed to extract color')
     }
 
-    const data: ImageColorExtractionResponse = await response.json()
-    return data.extracted_color
+    if (!response.data) {
+      throw new Error('No data returned from API')
+    }
+
+    return response.data.extracted_color
   }
 
   const processFile = async (file: File) => {

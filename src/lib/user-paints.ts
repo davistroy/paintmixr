@@ -14,7 +14,7 @@ interface UserPaint {
  * Convert user paint data to Kubelka-Munk paint properties
  * This function estimates K/S coefficients and other properties based on the paint color
  */
-function convertUserPaintToKubelkaMunk(userPaint: UserPaint, index: number): PaintProperties {
+function convertUserPaintToKubelkaMunk(userPaint: UserPaint, _index: number): PaintProperties {
   const lab = hexToLab(userPaint.hex)
 
   // Create a safe paint ID from the name and code
@@ -66,7 +66,7 @@ function convertUserPaintToKubelkaMunk(userPaint: UserPaint, index: number): Pai
     spray_code: userPaint.spray,
     hex: userPaint.hex,
     ...(userPaint.note && { note: userPaint.note })
-  }
+  } as any
 }
 
 /**
@@ -92,9 +92,9 @@ export function getUserPaintById(id: string): PaintProperties | undefined {
 export function getUserPaintOptions(): Array<{ value: string; label: string; hex: string }> {
   return getUserPaints().map(paint => ({
     value: paint.id,
-    label: `${paint.name} (${paint.code})`,
-    hex: paint.hex || paint.lab_values ?
-      paint.hex || ('#' + Math.floor(Math.random()*16777215).toString(16)) :
+    label: `${paint.name} (${(paint as any).code})`,
+    hex: (paint as any).hex || paint.lab_values ?
+      (paint as any).hex || ('#' + Math.floor(Math.random()*16777215).toString(16)) :
       '#000000'
   }))
 }

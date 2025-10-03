@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type {
-  ColorMatchRequest,
   ColorMatchResponse,
   ColorMatchErrorResponse,
   ColorValue,
@@ -39,7 +38,7 @@ const ColorMatchRequestSchema = z.object({
 function generateAlternatives(
   targetColor: ColorValue,
   totalVolume: number,
-  primaryFormula: MixingFormula,
+  _primaryFormula: MixingFormula,
   primaryDeltaE: number
 ): Array<{
   formula: MixingFormula

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
-import type { ColorValue, MixingFormula, ColorMatchRequest, ColorMatchResponse } from '@/types/types'
+import type { ColorValue } from '@/lib/types'
+import type { MixingFormula, ColorMatchResponse } from '@/types/types'
 
 interface UseColorMatchingState {
   isCalculating: boolean

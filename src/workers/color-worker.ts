@@ -4,14 +4,14 @@
 // import { findBestColorMatch } from '../lib/paint-mixing/color-matching'
 // import { predictColorFromRatios } from '../lib/paint-mixing/kubelka-munk'
 import { rgbToLab, labToRgb, deltaE2000 } from '../lib/color-science'
-import type { ColorValue, MixingFormula, PaintRatio } from '../types/types'
+import type { ColorValue, PaintRatio } from '../types/types'
 
 // TODO: Implement these missing functions
-function findBestColorMatch(params: any): any {
+function findBestColorMatch(_params: any): any {
   return { success: false, error: 'Not implemented yet' }
 }
 
-function predictColorFromRatios(params: any): any {
+function predictColorFromRatios(_params: any): any {
   return { success: false, error: 'Not implemented yet' }
 }
 

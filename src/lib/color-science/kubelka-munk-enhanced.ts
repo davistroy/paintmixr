@@ -81,6 +81,8 @@ export interface EnhancedPaintOpticalProperties extends PigmentProperties {
   finish_type: 'matte' | 'semigloss' | 'gloss' | 'metallic' | 'pearlescent';
   /** Recommended film thickness range */
   thickness_range: [number, number];
+  /** Pigment volume concentration */
+  pigment_concentration: number;
 }
 
 // Mixing prediction result
@@ -409,7 +411,7 @@ const calculateHidingPower = (coefficients: KubelkaMunkCoefficients): number => 
 // Calculate color strength relative to components
 const calculateColorStrength = (
   paints: EnhancedPaintOpticalProperties[],
-  ratios: number[],
+  _ratios: number[],
   mixedCoefficients: KubelkaMunkCoefficients
 ): number => {
   if (paints.length === 0) return 0;

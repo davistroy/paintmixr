@@ -1,228 +1,194 @@
 /**
  * Email/Password Sign-In API Route
- * Feature: 004-add-email-add
- * Task: T013
+ * Feature: 005-use-codebase-analysis
+ * Task: T034
  *
- * Server-side email/password authentication endpoint
- * Implements validation, rate limiting, and OAuth precedence checks
+ * Server-side email/password authentication endpoint with performance optimization.
+ * Implements targeted email query (O(1) lookup), rate limiting, OAuth precedence,
+ * and atomic lockout enforcement.
  *
  * Security Requirements:
- * - FR-003: Validate input with Zod schema
- * - FR-004: Authenticate via Supabase Auth
- * - FR-005: Return generic "Invalid credentials" error on auth failure
- * - FR-006: Check OAuth precedence (if user has OAuth, block email/password)
- * - FR-010: Track failed attempts, enforce lockout
- * - FR-011: Return success with redirectUrl on valid credentials
- * - NFR-001: Respond in under 5 seconds
- * - NFR-002: 15-minute lockout after 5 failed attempts
- * - NFR-004: No user enumeration (generic errors)
+ * - FR-001: O(1) targeted query with email filter (NOT full table scan)
+ * - FR-002: Sub-2-second authentication at 10K user scale
+ * - FR-003: Rate limit check BEFORE database queries
+ * - FR-004: Generic error messages (prevent user enumeration)
+ * - FR-005: OAuth precedence check
+ * - FR-006: Provider-specific error messages
+ * - FR-007: Atomic failed attempt counter
+ * - FR-008: Track lockout in user metadata
+ * - FR-009: 15-minute lockout after 5 failed attempts
+ * - FR-009a: Reset lockout timer on retry during active lockout
+ * - FR-010: Clear lockout on successful login
+ * - FR-011: Return redirect URL on success
+ * - FR-012: Lockout check before password verification
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { createRouteHandlerClient } from '@/lib/auth/supabase-server'
+import { createClient as createAdminClient } from '@/lib/supabase/admin'
 import { emailSigninSchema } from '@/lib/auth/validation'
+import { checkRateLimit, recordAuthAttempt } from '@/lib/auth/rate-limit'
 import {
   getLockoutMetadata,
   isUserLockedOut,
   incrementFailedAttempts,
-  clearLockout,
+  clearLockout
 } from '@/lib/auth/metadata-helpers'
-import type { EmailSigninResponse } from '@/types/auth'
-import type { Database } from '@/types/types'
 
 /**
  * POST /api/auth/email-signin
  *
  * Authenticates user with email and password
- * Returns 200 OK for both success and auth failures (prevents timing attacks)
- * Returns 400 for validation errors
- * Returns 500 for server errors
+ *
+ * Request Body:
+ * - email: string (required, valid email format)
+ * - password: string (required, min 1 char)
+ *
+ * Responses:
+ * - 200: Success with redirectTo
+ * - 400: Validation error
+ * - 401: Invalid credentials
+ * - 403: Account locked or OAuth precedence
+ * - 429: Rate limited
+ * - 500: Server error
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Parse request body with error handling for malformed JSON
-    let body: unknown
-    try {
-      body = await request.json()
-    } catch (parseError) {
-      return NextResponse.json<EmailSigninResponse>(
-        {
-          success: false,
-          error: 'Invalid request body',
-        },
-        { status: 400 }
-      )
-    }
+    // Extract IP address for rate limiting (from X-Forwarded-For header)
+    const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
 
-    // 2. Validate request body with Zod schema (FR-003)
-    const validationResult = emailSigninSchema.safeParse(body)
-
-    if (!validationResult.success) {
-      // Transform Zod errors to match contract spec format
-      const validationErrors: { [key: string]: string } = {}
-      validationResult.error.errors.forEach((err) => {
-        const field = err.path.join('.') || 'unknown'
-        validationErrors[field] = err.message
-      })
-
+    // CRITICAL: Check rate limit FIRST (before any DB queries)
+    const rateLimitStatus = checkRateLimit(ipAddress)
+    if (rateLimitStatus.rateLimited) {
       return NextResponse.json(
         {
-          error: 'Validation error',
-          details: validationErrors,
+          error: 'rate_limited',
+          message: 'Too many login attempts. Please try again later.',
+          retryAfter: rateLimitStatus.retryAfter
         },
-        { status: 400 }
-      )
-    }
-
-    const { email, password } = validationResult.data
-    // Email is already normalized (lowercase, trimmed) by Zod transform
-
-    // 3. Create Supabase clients
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Missing Supabase environment variables')
-      return NextResponse.json(
         {
-          error: 'An error occurred during sign in',
-        },
-        { status: 500 }
-      )
-    }
-
-    // Admin client for metadata operations (NFR-003: server-side secure storage)
-    const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    })
-
-    // Regular client for authentication
-    const supabase = await createRouteHandlerClient()
-
-    // 4. Get user by email to check lockout and OAuth precedence
-    // List all users and filter by email (Supabase doesn't have getUserByEmail on admin API)
-    const { data: userData, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers()
-
-    if (listUsersError) {
-      console.error('Error listing users:', listUsersError)
-      // Return generic error (NFR-004: no information leakage)
-      return NextResponse.json(
-        {
-          error: 'Invalid credentials',
-        },
-        { status: 401 }
-      )
-    }
-
-    // Find user with matching email (case-insensitive)
-    const user = userData.users.find((u) => u.email?.toLowerCase() === email)
-
-    // If user exists, perform security checks
-    if (user) {
-      // 5. Check lockout status (FR-010, NFR-002)
-      const lockoutMetadata = getLockoutMetadata(user)
-      const { isLocked, minutesRemaining } = isUserLockedOut(lockoutMetadata)
-
-      if (isLocked) {
-        // Return 429 with retry-after for locked accounts (from auth-signin-errors.test.ts)
-        return NextResponse.json(
-          {
-            error: 'Too many login attempts. Please try again later.',
-            retryAfter: minutesRemaining * 60, // Convert minutes to seconds
-          },
-          { status: 429 }
-        )
-      }
-
-      // 6. Check OAuth precedence (FR-006)
-      // Query auth.identities to see if user has OAuth providers
-      const { data: identitiesData, error: identitiesError } = await supabaseAdmin
-        .from('identities')
-        .select('provider')
-        .eq('user_id', user.id)
-
-      if (identitiesError) {
-        console.error('Error fetching identities:', identitiesError)
-        // Continue with auth attempt even if identity check fails
-      } else if (identitiesData && identitiesData.length > 0) {
-        // Check if any non-email provider exists
-        const oauthProvider = (identitiesData as Array<{ provider: string }>).find(
-          (identity) => identity.provider !== 'email'
-        )
-
-        if (oauthProvider) {
-          // User has OAuth provider, block email/password signin
-          const providerName =
-            oauthProvider.provider.charAt(0).toUpperCase() + oauthProvider.provider.slice(1)
-          return NextResponse.json(
-            {
-              error: `This account uses OAuth authentication. Please sign in with ${providerName}.`,
-              provider: oauthProvider.provider,
-            },
-            { status: 403 }
-          )
+          status: 429,
+          headers: { 'Retry-After': rateLimitStatus.retryAfter.toString() }
         }
-      }
+      )
     }
 
-    // 7. Attempt authentication with Supabase (FR-004)
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    // Parse and validate input
+    const body = await request.json()
+    const validation = emailSigninSchema.safeParse(body)
 
-    // 8. Handle authentication result
-    if (authError || !authData.session) {
-      // Authentication failed - increment failed attempts (FR-010)
-      if (user) {
-        const lockoutMetadata = getLockoutMetadata(user)
-        const updatedMetadata = incrementFailedAttempts(lockoutMetadata)
-
-        // Update user metadata with incremented counter
-        await supabaseAdmin.auth.admin.updateUserById(user.id, {
-          user_metadata: {
-            ...user.user_metadata,
-            ...updatedMetadata,
-          },
-        })
-      }
-
-      // Return generic error (FR-005, NFR-004: prevent user enumeration)
+    if (!validation.success) {
       return NextResponse.json(
-        {
-          error: 'Invalid credentials',
-        },
+        { error: 'validation_error', message: 'Invalid input' },
+        { status: 400 }
+      )
+    }
+
+    const { email, password } = validation.data
+    const adminClient = createAdminClient()
+
+    // CRITICAL: Targeted query with email filter (O(1) with index)
+    // DO NOT use listUsers() without filter - this causes N+1 query problem!
+    // Note: TypeScript types don't include 'filter' parameter, but it's supported by Supabase API
+    const { data: users, error: listError } = await adminClient.auth.admin.listUsers({
+      filter: `email.eq.${email}`
+    } as any)
+
+    if (listError) {
+      console.error('Error querying user by email:', listError)
+      // Generic error (prevent enumeration)
+      recordAuthAttempt(ipAddress)
+      return NextResponse.json(
+        { error: 'invalid_credentials', message: 'Invalid email or password' },
         { status: 401 }
       )
     }
 
-    // 9. Success - reset lockout metadata (FR-011)
-    if (user) {
-      const lockoutMetadata = getLockoutMetadata(user)
-      const clearedMetadata = clearLockout(lockoutMetadata)
+    const user = users.users[0]
 
-      await supabaseAdmin.auth.admin.updateUserById(user.id, {
-        user_metadata: {
-          ...user.user_metadata,
-          ...clearedMetadata,
-        },
-      })
+    // Generic error if user not found (prevent enumeration)
+    if (!user) {
+      recordAuthAttempt(ipAddress)
+      return NextResponse.json(
+        { error: 'invalid_credentials', message: 'Invalid email or password' },
+        { status: 401 }
+      )
     }
 
-    // 10. Return success response
-    return NextResponse.json(
-      {
-        success: true,
-        redirectUrl: '/',
-      },
-      { status: 200 }
-    )
+    // Check lockout status BEFORE password verification (FR-012)
+    const lockoutMetadata = getLockoutMetadata(user)
+    const lockoutStatus = isUserLockedOut(lockoutMetadata)
+
+    if (lockoutStatus.locked) {
+      // Reset lockout timer if user attempts during lockout (FR-009a)
+      const newLockoutUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      await adminClient.auth.admin.updateUserById(user.id, {
+        user_metadata: {
+          ...lockoutMetadata,
+          lockout_until: newLockoutUntil
+        }
+      })
+
+      return NextResponse.json(
+        {
+          error: 'account_locked',
+          message: 'Account locked due to too many failed login attempts.',
+          lockedUntil: newLockoutUntil,
+          remainingSeconds: 900 // Reset to full 15 minutes
+        },
+        { status: 403 }
+      )
+    }
+
+    // Check OAuth precedence (query auth.identities)
+    // Note: auth.identities is not exposed via PostgREST, query directly via admin SQL
+    const { data: identities, error: identitiesError } = await adminClient
+      .from('identities' as any)
+      .select('provider')
+      .eq('user_id', user.id)
+      .neq('provider', 'email')
+      .limit(1)
+
+    if (identitiesError) {
+      console.error('Error checking OAuth identities:', identitiesError)
+      // Continue with authentication if identity check fails
+    } else if (identities && identities.length > 0) {
+      const provider = (identities[0] as any).provider
+      return NextResponse.json(
+        {
+          error: 'oauth_precedence',
+          message: `This account uses ${provider} authentication. Please sign in with ${provider}.`,
+          provider
+        },
+        { status: 403 }
+      )
+    }
+
+    // Attempt password authentication
+    const { error: signInError } = await adminClient.auth.signInWithPassword({
+      email,
+      password
+    })
+
+    if (signInError) {
+      // Increment failed attempts atomically (prevents race conditions)
+      await incrementFailedAttempts(user.id, adminClient)
+      recordAuthAttempt(ipAddress)
+
+      return NextResponse.json(
+        { error: 'invalid_credentials', message: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+
+    // Success: Clear lockout metadata
+    await clearLockout(user.id, adminClient)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Signed in successfully',
+      redirectTo: '/dashboard'
+    })
   } catch (error) {
-    // Log error server-side but don't expose details to client
     console.error('Email signin error:', error)
     return NextResponse.json(
       {

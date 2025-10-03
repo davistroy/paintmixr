@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import type { ColorValue } from '@/types/types'
+import type { ColorValue } from '@/lib/types'
 import ColorValueComponent from '@/components/color-display/ColorValue'
 
 interface AccuracyIndicatorProps {

@@ -3,7 +3,7 @@
  * Provides business logic and data transformation for session operations
  */
 
-import { supabase, getCurrentUser } from './client'
+import { createClient } from './client'
 import type {
   Database,
   MixingSession,
@@ -14,6 +14,18 @@ import type {
   MixingFormula,
   ColorValue,
 } from '@/types/types'
+
+/**
+ * Get current user from client
+ */
+async function getCurrentUser() {
+  const supabase = createClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) {
+    return null
+  }
+  return user
+}
 
 type SessionRow = Database['public']['Tables']['mixing_sessions']['Row']
 type SessionInsert = Database['public']['Tables']['mixing_sessions']['Insert']
@@ -135,6 +147,8 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
+    const supabase = createClient()
+
     const {
       limit = 20,
       offset = 0,
@@ -155,11 +169,23 @@ export class SessionService {
       query = query.eq('is_favorite', true)
     }
 
-    // Get total count for pagination
-    const { count } = await query.select('*', { count: 'exact', head: true })
+    // Get total count for pagination (create new query for count)
+    let countQuery = supabase
+      .from('mixing_sessions')
+      .select('*', { count: 'exact', head: true })
+
+    if (session_type) {
+      countQuery = countQuery.eq('session_type', session_type)
+    }
+    if (favorites_only) {
+      countQuery = countQuery.eq('is_favorite', true)
+    }
+
+    const { count } = await countQuery
 
     // Get paginated results
     const { data, error } = await query
+      .select('*')
       .range(offset, offset + limit - 1)
 
     if (error) {
@@ -185,6 +211,8 @@ export class SessionService {
     if (!user) {
       throw new Error('User not authenticated')
     }
+
+    const supabase = createClient()
 
     const { data, error } = await supabase
       .from('mixing_sessions')
@@ -229,6 +257,8 @@ export class SessionService {
       throw new Error('Session type and input method are required')
     }
 
+    const supabase = createClient()
+
     const sessionData = transformCreateRequest(request, user.id)
 
     const { data, error } = await supabase
@@ -263,15 +293,17 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
+    const supabase = createClient()
+
     const updateData: SessionUpdate = {
       custom_label: updates.custom_label,
       notes: updates.notes,
       is_favorite: updates.is_favorite,
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('mixing_sessions')
-      .update(updateData as any)
+      .update(updateData)
       .eq('id', sessionId)
       .select()
       .single()
@@ -295,6 +327,8 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
+    const supabase = createClient()
+
     const { error } = await supabase
       .from('mixing_sessions')
       .delete()
@@ -314,14 +348,16 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
+    const supabase = createClient()
+
     // Start transaction
-    const { data: formulaData, error: formulaError } = await supabase
+    const { data: formulaData, error: formulaError } = await (supabase as any)
       .from('mixing_formulas')
       .insert({
         session_id: sessionId,
         total_volume_ml: formula.total_volume_ml,
         mixing_order: formula.mixing_order || null,
-      } as any)
+      })
       .select()
       .single()
 
@@ -343,13 +379,13 @@ export class SessionService {
       percentage: ratio.percentage,
     }))
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await (supabase as any)
       .from('formula_items')
-      .insert(formulaItems as any)
+      .insert(formulaItems)
 
     if (itemsError) {
       // Cleanup formula if items insertion fails
-      await supabase
+      await (supabase as any)
         .from('mixing_formulas')
         .delete()
         .eq('id', formulaData.id)
@@ -367,8 +403,10 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
+    const supabase = createClient()
+
     // Get current state
-    const { data: currentData, error: selectError } = await supabase
+    const { data: currentData, error: selectError } = await (supabase as any)
       .from('mixing_sessions')
       .select('is_favorite')
       .eq('id', sessionId)
@@ -379,9 +417,9 @@ export class SessionService {
     }
 
     // Toggle favorite status
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('mixing_sessions')
-      .update({ is_favorite: !currentData.is_favorite } as any)
+      .update({ is_favorite: !currentData.is_favorite })
       .eq('id', sessionId)
       .select()
       .single()
@@ -413,6 +451,8 @@ export class SessionService {
     if (!user) {
       throw new Error('User not authenticated')
     }
+
+    const supabase = createClient()
 
     const { data, error } = await supabase
       .from('mixing_sessions')

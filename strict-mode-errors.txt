@@ -1,0 +1,260 @@
+
+> paintmixr@0.1.0 build
+> next build
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ ⚠ Compiled with warnings
+
+./src/components/auth/EmailSigninForm.tsx
+Attempted import error: 'checkLocalLockout' is not exported from '@/lib/auth/rate-limit' (imported as 'checkLocalLockout').
+
+Import trace for requested module:
+./src/components/auth/EmailSigninForm.tsx
+
+./src/components/auth/EmailSigninForm.tsx
+Attempted import error: 'clearLocalLockout' is not exported from '@/lib/auth/rate-limit' (imported as 'clearLocalLockout').
+
+Import trace for requested module:
+./src/components/auth/EmailSigninForm.tsx
+
+./src/components/auth/EmailSigninForm.tsx
+Attempted import error: 'updateLocalLockout' is not exported from '@/lib/auth/rate-limit' (imported as 'updateLocalLockout').
+
+Import trace for requested module:
+./src/components/auth/EmailSigninForm.tsx
+
+./src/components/auth/EmailSigninForm.tsx
+Attempted import error: 'checkLocalLockout' is not exported from '@/lib/auth/rate-limit' (imported as 'checkLocalLockout').
+
+Import trace for requested module:
+./src/components/auth/EmailSigninForm.tsx
+
+./src/lib/database/repositories/enhanced-paint-repository.ts
+Attempted import error: 'calculateCIEDE2000Enhanced' is not exported from '@/lib/color-science/delta-e-ciede2000' (imported as 'calculateCIEDE2000Enhanced').
+
+Import trace for requested module:
+./src/lib/database/repositories/enhanced-paint-repository.ts
+./src/app/api/collections/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'getCurrentUser' is not exported from './client' (imported as 'getCurrentUser').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'getCurrentUser' is not exported from './client' (imported as 'getCurrentUser').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'getCurrentUser' is not exported from './client' (imported as 'getCurrentUser').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'getCurrentUser' is not exported from './client' (imported as 'getCurrentUser').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'getCurrentUser' is not exported from './client' (imported as 'getCurrentUser').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'getCurrentUser' is not exported from './client' (imported as 'getCurrentUser').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'getCurrentUser' is not exported from './client' (imported as 'getCurrentUser').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'getCurrentUser' is not exported from './client' (imported as 'getCurrentUser').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/supabase/sessions.ts
+Attempted import error: 'supabase' is not exported from './client' (imported as 'supabase').
+
+Import trace for requested module:
+./src/lib/supabase/sessions.ts
+./src/app/api/sessions/route.ts
+
+./src/lib/workers/color-optimization.worker.ts
+Attempted import error: 'calculateCIEDE2000Enhanced' is not exported from '@/lib/color-science/delta-e-ciede2000' (imported as 'calculateCIEDE2000Enhanced').
+
+Import trace for requested module:
+./src/lib/workers/color-optimization.worker.ts
+./src/lib/workers/optimization-client.ts
+./src/app/api/optimize/route.ts
+
+./src/lib/workers/color-optimization.worker.ts
+Attempted import error: 'calculateCIEDE2000Enhanced' is not exported from '@/lib/color-science/delta-e-ciede2000' (imported as 'calculateCIEDE2000Enhanced').
+
+Import trace for requested module:
+./src/lib/workers/color-optimization.worker.ts
+./src/lib/workers/optimization-client.ts
+./src/app/api/optimize/route.ts
+
+./src/lib/workers/color-optimization.worker.ts
+Attempted import error: 'calculateCIEDE2000Enhanced' is not exported from '@/lib/color-science/delta-e-ciede2000' (imported as 'calculateCIEDE2000Enhanced').
+
+Import trace for requested module:
+./src/lib/workers/color-optimization.worker.ts
+./src/lib/workers/optimization-client.ts
+./src/app/api/optimize/route.ts
+
+ ⚠ Compiled with warnings
+
+./src/components/auth/EmailSigninForm.tsx
+Attempted import error: 'checkLocalLockout' is not exported from '@/lib/auth/rate-limit' (imported as 'checkLocalLockout').
+
+Import trace for requested module:
+./src/components/auth/EmailSigninForm.tsx
+
+./src/components/auth/EmailSigninForm.tsx
+Attempted import error: 'checkLocalLockout' is not exported from '@/lib/auth/rate-limit' (imported as 'checkLocalLockout').
+
+Import trace for requested module:
+./src/components/auth/EmailSigninForm.tsx
+
+./src/components/auth/EmailSigninForm.tsx
+Attempted import error: 'clearLocalLockout' is not exported from '@/lib/auth/rate-limit' (imported as 'clearLocalLockout').
+
+Import trace for requested module:
+./src/components/auth/EmailSigninForm.tsx
+
+./src/components/auth/EmailSigninForm.tsx
+Attempted import error: 'updateLocalLockout' is not exported from '@/lib/auth/rate-limit' (imported as 'updateLocalLockout').
+
+Import trace for requested module:
+./src/components/auth/EmailSigninForm.tsx
+
+./src/components/auth/EmailSigninForm.tsx
+Attempted import error: 'checkLocalLockout' is not exported from '@/lib/auth/rate-limit' (imported as 'checkLocalLockout').
+
+Import trace for requested module:
+./src/components/auth/EmailSigninForm.tsx
+
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+
+./src/app/history/page.tsx
+71:6  Warning: React Hook useEffect has a missing dependency: 'fetchSessions'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/components/color-input/ImageUpload.tsx
+118:6  Warning: React Hook useCallback has a missing dependency: 'processFile'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+251:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./src/components/dashboard/paint-mixing-dashboard.tsx
+173:6  Warning: React Hook useCallback has a missing dependency: 'saveMixingResult'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/lib/hooks/usePagination.ts
+61:7  Warning: React Hook useMemo has an unnecessary dependency: 'pageSize'. Either exclude it or remove the dependency array.  react-hooks/exhaustive-deps
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+Failed to compile.
+
+./src/app/api/collections/[id]/route.ts:41:37
+Type error: Property 'getCollectionById' does not exist on type 'EnhancedPaintRepository'.
+
+[0m [90m 39 |[39m[0m
+[0m [90m 40 |[39m     [36mconst[39m repository [33m=[39m [36mnew[39m [33mEnhancedPaintRepository[39m(supabase)[33m;[39m[0m
+[0m[31m[1m>[22m[39m[90m 41 |[39m     [36mconst[39m result [33m=[39m [36mawait[39m repository[33m.[39mgetCollectionById(collectionId[33m,[39m user[33m.[39mid)[33m;[39m[0m
+[0m [90m    |[39m                                     [31m[1m^[22m[39m[0m
+[0m [90m 42 |[39m[0m
+[0m [90m 43 |[39m     [36mif[39m (result[33m.[39merror) {[0m
+[0m [90m 44 |[39m       [36mreturn[39m [33mNextResponse[39m[33m.[39mjson([0m
+Next.js build worker exited with code: 1 and signal: null

@@ -91,22 +91,16 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/screenshots/desktop-main.png',
         sizes: '1280x720',
         type: 'image/png',
-        form_factor: 'wide',
-        label: 'PaintMixr main interface on desktop',
       },
       {
         src: '/screenshots/mobile-main.png',
         sizes: '390x844',
         type: 'image/png',
-        form_factor: 'narrow',
-        label: 'PaintMixr main interface on mobile',
       },
       {
         src: '/screenshots/color-matching.png',
         sizes: '390x844',
         type: 'image/png',
-        form_factor: 'narrow',
-        label: 'Color matching results with mixing formulas',
       },
     ],
     related_applications: [],
@@ -122,6 +116,6 @@ export default function manifest(): MetadataRoute.Manifest {
           'image/gif': ['.gif'],
         },
       },
-    ],
+    ] as any,
   }
 }

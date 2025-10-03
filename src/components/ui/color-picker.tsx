@@ -8,8 +8,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { LABColor, RGBColor } from '@/lib/color-science/types';
-import { convertLABtoRGB, convertRGBtoLAB, convertRGBtoHex } from '@/lib/color-science/color-utils';
-import { calculateDeltaE } from '@/lib/color-science/delta-e';
+import { labToRgb, rgbToLab, rgbToHex } from '@/lib/color-science';
+import { deltaE2000 } from '@/lib/color-science';
 
 interface ColorPickerProps {
   initialColor?: LABColor;
@@ -25,7 +25,7 @@ interface ColorPickerProps {
 }
 
 interface ColorInputs {
-  L: number;
+  l: number;
   a: number;
   b: number;
   r: number;
@@ -35,7 +35,7 @@ interface ColorInputs {
 }
 
 export default function ColorPicker({
-  initialColor = { L: 50, a: 0, b: 0 },
+  initialColor = { l: 50, a: 0, b: 0 },
   onColorChange,
   onColorAccepted,
   showDeltaE = false,
@@ -48,15 +48,15 @@ export default function ColorPicker({
 }: ColorPickerProps) {
   const [currentColor, setCurrentColor] = useState<LABColor>(initialColor);
   const [colorInputs, setColorInputs] = useState<ColorInputs>(() => {
-    const rgb = convertLABtoRGB(initialColor);
+    const rgb = labToRgb(initialColor);
     return {
-      L: initialColor.L,
+      l: initialColor.l,
       a: initialColor.a,
       b: initialColor.b,
       r: rgb.r,
       g: rgb.g,
       b_rgb: rgb.b,
-      hex: convertRGBtoHex(rgb)
+      hex: rgbToHex(rgb)
     };
   });
   const [activeTab, setActiveTab] = useState<'visual' | 'lab' | 'rgb' | 'hex'>('visual');
@@ -64,11 +64,11 @@ export default function ColorPicker({
 
   // Update derived values when color changes
   const updateColorInputs = useCallback((labColor: LABColor) => {
-    const rgb = convertLABtoRGB(labColor);
-    const hex = convertRGBtoHex(rgb);
+    const rgb = labToRgb(labColor);
+    const hex = rgbToHex(rgb);
 
     setColorInputs({
-      L: Math.round(labColor.L * 100) / 100,
+      l: Math.round(labColor.l * 100) / 100,
       a: Math.round(labColor.a * 100) / 100,
       b: Math.round(labColor.b * 100) / 100,
       r: Math.round(rgb.r),
@@ -81,7 +81,7 @@ export default function ColorPicker({
   // Calculate Delta E when reference color changes
   useEffect(() => {
     if (showDeltaE && referenceColor) {
-      const deltaEValue = calculateDeltaE(currentColor, referenceColor);
+      const deltaEValue = deltaE2000(currentColor, referenceColor);
       setDeltaE(deltaEValue);
     } else {
       setDeltaE(null);
@@ -92,7 +92,7 @@ export default function ColorPicker({
   const handleColorChange = useCallback((newColor: LABColor) => {
     // Clamp LAB values to valid ranges
     const clampedColor: LABColor = {
-      L: Math.max(0, Math.min(100, newColor.L)),
+      l: Math.max(0, Math.min(100, newColor.l)),
       a: Math.max(-128, Math.min(127, newColor.a)),
       b: Math.max(-128, Math.min(127, newColor.b))
     };
@@ -117,7 +117,7 @@ export default function ColorPicker({
       g: component === 'g' ? numValue : colorInputs.g,
       b: component === 'b_rgb' ? numValue : colorInputs.b_rgb
     };
-    const labColor = convertRGBtoLAB(newRGB);
+    const labColor = rgbToLab(newRGB);
     handleColorChange(labColor);
   };
 
@@ -128,7 +128,7 @@ export default function ColorPicker({
       const r = parseInt(hex.substr(0, 2), 16);
       const g = parseInt(hex.substr(2, 2), 16);
       const b = parseInt(hex.substr(4, 2), 16);
-      const labColor = convertRGBtoLAB({ r, g, b });
+      const labColor = rgbToLab({ r, g, b });
       handleColorChange(labColor);
     }
   };
@@ -156,8 +156,8 @@ export default function ColorPicker({
         const a = ((x / canvas.width) * 255) - 128; // -128 to 127
         const b = (((canvas.height - y) / canvas.height) * 255) - 128; // -128 to 127
 
-        const labColor: LABColor = { L: currentColor.L, a, b };
-        const rgb = convertLABtoRGB(labColor);
+        const labColor: LABColor = { l: currentColor.l, a, b };
+        const rgb = labToRgb(labColor);
 
         const index = (y * canvas.width + x) * 4;
         data[index] = rgb.r;
@@ -171,7 +171,7 @@ export default function ColorPicker({
     return canvas.toDataURL();
   };
 
-  const currentHex = convertRGBtoHex(convertLABtoRGB(currentColor));
+  const currentHex = rgbToHex(labToRgb(currentColor));
   const deltaEColor = deltaE !== null ? (deltaE <= 2 ? 'text-green-600' : deltaE <= 4 ? 'text-yellow-600' : 'text-red-600') : '';
 
   return (
@@ -199,12 +199,12 @@ export default function ColorPicker({
               <div>
                 <div className="text-sm font-medium text-gray-700">Target</div>
                 <div className="text-xs text-gray-500">
-                  {convertRGBtoHex(convertLABtoRGB(referenceColor))}
+                  {rgbToHex(labToRgb(referenceColor))}
                 </div>
               </div>
               <div
                 className="w-16 h-16 rounded-lg border-2 border-gray-200 shadow-inner"
-                style={{ backgroundColor: convertRGBtoHex(convertLABtoRGB(referenceColor)) }}
+                style={{ backgroundColor: rgbToHex(labToRgb(referenceColor)) }}
               />
             </div>
           )}
@@ -267,14 +267,14 @@ export default function ColorPicker({
 
           {/* Lightness slider */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Lightness (L): {colorInputs.L.toFixed(1)}</label>
+            <label className="text-sm font-medium text-gray-700">Lightness (L): {colorInputs.l.toFixed(1)}</label>
             <input
               type="range"
               min="0"
               max="100"
               step="0.1"
-              value={currentColor.L}
-              onChange={(e) => handleColorChange({ ...currentColor, L: parseFloat(e.target.value) })}
+              value={currentColor.l}
+              onChange={(e) => handleColorChange({ ...currentColor, l: parseFloat(e.target.value) })}
               disabled={disabled}
               className="w-full h-2 bg-gradient-to-r from-black to-white rounded-lg appearance-none cursor-pointer"
             />
@@ -291,7 +291,7 @@ export default function ColorPicker({
               min="0"
               max="100"
               step="0.1"
-              value={colorInputs.L}
+              value={colorInputs.l}
               onChange={(e) => handleLABInput('L', e.target.value)}
               disabled={disabled}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"

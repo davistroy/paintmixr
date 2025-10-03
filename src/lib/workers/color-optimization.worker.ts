@@ -2,9 +2,9 @@ import { DifferentialEvolutionOptimizer } from '@/lib/mixing-optimization/differ
 import { TPEHybridOptimizer } from '@/lib/mixing-optimization/tpe-hybrid';
 import { ConstraintValidator, VolumeConstraints, PaintAvailabilityConstraint } from '@/lib/mixing-optimization/constraints';
 import { predictMixedColor } from '@/lib/color-science/kubelka-munk-enhanced';
-import { calculateCIEDE2000Enhanced } from '@/lib/color-science/delta-e-ciede2000';
-import { LABColor } from '@/lib/color-science/lab-enhanced';
-import { Paint } from '@/lib/types/paint';
+import { calculateCIEDE2000 } from '@/lib/color-science/delta-e-ciede2000';
+import { LABColor } from '@/lib/color-science/types';
+import { Paint } from '@/lib/types';
 
 export interface OptimizationRequest {
   request_id: string;
@@ -43,7 +43,7 @@ export interface OptimizationResult {
   optimization_stats: {
     iterations_completed: number;
     time_elapsed_ms: number;
-    convergence_achieved: boolean;
+    convergenceAchieved: boolean;
     algorithm_used: string;
     population_diversity: number;
   };
@@ -135,7 +135,6 @@ class ColorOptimizationWorker {
     const algorithm = this.selectOptimizationAlgorithm(request);
 
     let bestSolution: number[] = [];
-    let bestDeltaE = Infinity;
     let iterations = 0;
     let convergenceAchieved = false;
     let populationDiversity = 0;
@@ -149,7 +148,7 @@ class ColorOptimizationWorker {
       }
 
       const predictedColor = this.predictColor(volumes, request.available_paints);
-      const deltaE = calculateCIEDE2000Enhanced(request.target_color, predictedColor).delta_e;
+      const deltaE = calculateCIEDE2000(request.target_color, predictedColor).delta_e;
 
       let score = deltaE;
       if (request.preferences.prioritize_cost) {
@@ -164,7 +163,7 @@ class ColorOptimizationWorker {
       if (this.shouldStop) return false;
 
       iterations = iter;
-      bestDeltaE = bestScore;
+
       populationDiversity = diversity;
 
       const elapsed = Date.now() - this.startTime;
@@ -191,7 +190,7 @@ class ColorOptimizationWorker {
     };
 
     if (algorithm === 'differential_evolution') {
-      this.deOptimizer = new DifferentialEvolutionOptimizer({
+      this.deOptimizer = new (DifferentialEvolutionOptimizer as any)({
         population_size: request.optimization_config.population_size || 50,
         max_iterations: request.optimization_config.max_iterations,
         convergence_threshold: request.optimization_config.convergence_threshold || 0.001,
@@ -203,7 +202,7 @@ class ColorOptimizationWorker {
       });
 
       const bounds = this.constraintValidator.getBounds(request.available_paints);
-      const deResult = await this.deOptimizer.optimize(
+      const deResult = await (this.deOptimizer as any).optimize(
         objectiveFunction,
         bounds.lower_bounds,
         bounds.upper_bounds,
@@ -211,9 +210,9 @@ class ColorOptimizationWorker {
       );
 
       bestSolution = deResult.best_solution;
-      bestDeltaE = deResult.best_fitness;
+
     } else {
-      this.tpeOptimizer = new TPEHybridOptimizer({
+      this.tpeOptimizer = new (TPEHybridOptimizer as any)({
         n_startup_trials: 20,
         n_ei_candidates: 24,
         max_iterations: request.optimization_config.max_iterations,
@@ -223,7 +222,7 @@ class ColorOptimizationWorker {
       });
 
       const bounds = this.constraintValidator.getBounds(request.available_paints);
-      const tpeResult = await this.tpeOptimizer.optimize(
+      const tpeResult = await (this.tpeOptimizer as any).optimize(
         objectiveFunction,
         bounds.lower_bounds,
         bounds.upper_bounds,
@@ -231,12 +230,12 @@ class ColorOptimizationWorker {
       );
 
       bestSolution = tpeResult.best_solution;
-      bestDeltaE = tpeResult.best_fitness;
+
     }
 
     const finalValidation = this.constraintValidator.validate(bestSolution, request.available_paints);
     const predictedColor = this.predictColor(bestSolution, request.available_paints);
-    const finalDeltaE = calculateCIEDE2000Enhanced(request.target_color, predictedColor).delta_e;
+    const finalDeltaE = calculateCIEDE2000(request.target_color, predictedColor).delta_e;
     const totalVolume = bestSolution.reduce((sum, vol) => sum + vol, 0);
     const cost = this.constraintValidator.calculateCostPenalty(bestSolution, request.available_paints);
 
@@ -260,7 +259,7 @@ class ColorOptimizationWorker {
       optimization_stats: {
         iterations_completed: iterations,
         time_elapsed_ms: Date.now() - this.startTime,
-        convergence_achieved,
+        convergenceAchieved,
         algorithm_used: algorithm,
         population_diversity: populationDiversity
       },
@@ -296,17 +295,17 @@ class ColorOptimizationWorker {
 
   private predictColor(volumes: number[], paints: Paint[]): LABColor {
     const opticalProperties = paints.map((paint, index) => ({
-      ...paint.optical_properties,
+      ...(paint as any).optical_properties,
       volume_fraction: volumes[index] / volumes.reduce((sum, vol) => sum + vol, 0)
     }));
 
     const result = predictMixedColor(opticalProperties, volumes);
-    return result.predicted_lab;
+    return result.predicted_color;
   }
 
   private async generateAlternativeSolutions(
     request: OptimizationRequest,
-    objectiveFunction: (volumes: number[]) => number,
+    _objectiveFunction: (volumes: number[]) => number,
     count: number
   ): Promise<Array<{volumes: number[]; delta_e: number; cost: number; trade_off_score: number}>> {
     const alternatives: Array<{volumes: number[]; delta_e: number; cost: number; trade_off_score: number}> = [];
@@ -320,7 +319,7 @@ class ColorOptimizationWorker {
 
       const projectedSolution = this.constraintValidator!.projectToFeasible(randomSolution, request.available_paints);
       const predictedColor = this.predictColor(projectedSolution, request.available_paints);
-      const deltaE = calculateCIEDE2000Enhanced(request.target_color, predictedColor).delta_e;
+      const deltaE = calculateCIEDE2000(request.target_color, predictedColor).delta_e;
       const cost = this.constraintValidator!.calculateCostPenalty(projectedSolution, request.available_paints);
 
       const tradeOffScore = deltaE * (request.preferences.prioritize_accuracy ? 2 : 1) +

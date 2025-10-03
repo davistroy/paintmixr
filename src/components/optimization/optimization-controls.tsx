@@ -6,7 +6,10 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { VolumeConstraints } from '@/lib/color-science/types';
+import { ExtendedVolumeConstraints } from '@/lib/types';
+import AlgorithmSettings from './AlgorithmSettings';
+import VolumeConstraintsSettings from './VolumeConstraintsSettings';
+import PaintFiltersSettings from './PaintFiltersSettings';
 
 interface OptimizationConfig {
   algorithm: 'differential_evolution' | 'tpe_hybrid' | 'auto';
@@ -27,21 +30,15 @@ interface PaintFilters {
 }
 
 interface OptimizationControlsProps {
-  onOptimize: (config: OptimizationConfig, constraints: VolumeConstraints, filters: PaintFilters) => void;
+  onOptimize: (config: OptimizationConfig, constraints: ExtendedVolumeConstraints, filters: PaintFilters) => void;
   isOptimizing: boolean;
   availableCollections: Array<{ id: string; name: string; paint_count: number }>;
   availablePaints: number;
   className?: string;
   defaultConfig?: Partial<OptimizationConfig>;
-  defaultConstraints?: Partial<VolumeConstraints>;
+  defaultConstraints?: Partial<ExtendedVolumeConstraints>;
   defaultFilters?: Partial<PaintFilters>;
 }
-
-const ALGORITHM_DESCRIPTIONS = {
-  auto: 'Automatically selects the best algorithm based on problem complexity',
-  differential_evolution: 'Robust global optimization, slower but more thorough',
-  tpe_hybrid: 'Fast optimization with machine learning acceleration'
-} as const;
 
 const PRESET_CONFIGURATIONS = {
   speed: {
@@ -87,7 +84,7 @@ export default function OptimizationControls({
     ...defaultConfig
   });
 
-  const [constraints, setConstraints] = useState<VolumeConstraints>({
+  const [constraints, setConstraints] = useState<ExtendedVolumeConstraints>({
     min_total_volume_ml: 1.0,
     max_total_volume_ml: 1000.0,
     precision_ml: 0.1,
@@ -135,7 +132,7 @@ export default function OptimizationControls({
     setConfig(prev => ({ ...prev, ...updates }));
   };
 
-  const handleConstraintsChange = (updates: Partial<VolumeConstraints>) => {
+  const handleConstraintsChange = (updates: Partial<ExtendedVolumeConstraints>) => {
     setConstraints(prev => ({ ...prev, ...updates }));
   };
 
@@ -233,278 +230,25 @@ export default function OptimizationControls({
 
       {/* Algorithm Settings */}
       {activeSection === 'algorithm' && (
-        <div className="px-6 py-4 space-y-6">
-          {/* Algorithm Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Optimization Algorithm
-            </label>
-            <div className="space-y-3">
-              {Object.entries(ALGORITHM_DESCRIPTIONS).map(([alg, description]) => (
-                <label key={alg} className="flex items-start">
-                  <input
-                    type="radio"
-                    name="algorithm"
-                    value={alg}
-                    checked={config.algorithm === alg}
-                    onChange={(e) => handleConfigChange({ algorithm: e.target.value as any })}
-                    className="mt-1 mr-3"
-                  />
-                  <div>
-                    <div className="font-medium capitalize">{alg.replace('_', ' ')}</div>
-                    <div className="text-sm text-gray-500">{description}</div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Target Delta E */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Target Delta E: {config.target_delta_e.toFixed(1)}
-            </label>
-            <input
-              type="range"
-              min="0.5"
-              max="4.0"
-              step="0.1"
-              value={config.target_delta_e}
-              onChange={(e) => handleConfigChange({ target_delta_e: parseFloat(e.target.value) })}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>0.5 (Highest)</span>
-              <span>2.0 (Target)</span>
-              <span>4.0 (Acceptable)</span>
-            </div>
-          </div>
-
-          {/* Max Iterations */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Maximum Iterations: {config.max_iterations.toLocaleString()}
-            </label>
-            <input
-              type="range"
-              min="500"
-              max="10000"
-              step="100"
-              value={config.max_iterations}
-              onChange={(e) => handleConfigChange({ max_iterations: parseInt(e.target.value) })}
-              className="w-full"
-            />
-          </div>
-
-          {/* Time Limit */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Time Limit: {(config.time_limit_ms / 1000).toFixed(1)}s
-            </label>
-            <input
-              type="range"
-              min="2000"
-              max="30000"
-              step="1000"
-              value={config.time_limit_ms}
-              onChange={(e) => handleConfigChange({ time_limit_ms: parseInt(e.target.value) })}
-              className="w-full"
-            />
-          </div>
-
-          {/* Quality Requirements */}
-          <div className="space-y-3">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={config.require_color_verification}
-                onChange={(e) => handleConfigChange({ require_color_verification: e.target.checked })}
-                className="mr-2"
-              />
-              <span className="text-sm">Require color-verified paints only</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={config.require_calibration}
-                onChange={(e) => handleConfigChange({ require_calibration: e.target.checked })}
-                className="mr-2"
-              />
-              <span className="text-sm">Require calibrated optical properties</span>
-            </label>
-          </div>
-        </div>
+        <AlgorithmSettings config={config} onConfigChange={handleConfigChange} />
       )}
 
       {/* Volume Constraints */}
       {activeSection === 'constraints' && (
-        <div className="px-6 py-4 space-y-6">
-          {/* Total Volume Range */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Min Total Volume (ml)
-              </label>
-              <input
-                type="number"
-                min="0.1"
-                max="10000"
-                step="0.1"
-                value={constraints.min_total_volume_ml}
-                onChange={(e) => handleConstraintsChange({ min_total_volume_ml: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Max Total Volume (ml)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="10000"
-                step="1"
-                value={constraints.max_total_volume_ml}
-                onChange={(e) => handleConstraintsChange({ max_total_volume_ml: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-          </div>
-
-          {/* Precision and Paint Limits */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Precision (ml)
-              </label>
-              <select
-                value={constraints.precision_ml}
-                onChange={(e) => handleConstraintsChange({ precision_ml: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="0.1">0.1ml (High)</option>
-                <option value="0.5">0.5ml (Medium)</option>
-                <option value="1.0">1.0ml (Low)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Max Paints
-              </label>
-              <input
-                type="number"
-                min="2"
-                max="20"
-                value={constraints.max_paint_count}
-                onChange={(e) => handleConstraintsChange({ max_paint_count: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Min Paint Volume (ml)
-              </label>
-              <input
-                type="number"
-                min="0.1"
-                max="100"
-                step="0.1"
-                value={constraints.min_paint_volume_ml}
-                onChange={(e) => handleConstraintsChange({ min_paint_volume_ml: parseFloat(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-          </div>
-
-          {/* Asymmetric Ratios */}
-          <div>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={constraints.asymmetric_ratios}
-                onChange={(e) => handleConstraintsChange({ asymmetric_ratios: e.target.checked })}
-                className="mr-2"
-              />
-              <span className="text-sm font-medium">Enable asymmetric volume ratios</span>
-            </label>
-            <p className="text-xs text-gray-500 mt-1">
-              Allows paints to be mixed in unequal proportions for better color matching
-            </p>
-          </div>
-        </div>
+        <VolumeConstraintsSettings
+          constraints={constraints}
+          onConstraintsChange={handleConstraintsChange}
+        />
       )}
 
       {/* Paint Filters */}
       {activeSection === 'filters' && (
-        <div className="px-6 py-4 space-y-6">
-          {/* Collection Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Paint Collection
-            </label>
-            <select
-              value={filters.collection_id || ''}
-              onChange={(e) => handleFiltersChange({ collection_id: e.target.value || undefined })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="">All Collections ({availablePaints} paints)</option>
-              {availableCollections.map((collection) => (
-                <option key={collection.id} value={collection.id}>
-                  {collection.name} ({collection.paint_count} paints)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Quality Filters */}
-          <div className="space-y-3">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={filters.available_only}
-                onChange={(e) => handleFiltersChange({ available_only: e.target.checked })}
-                className="mr-2"
-              />
-              <span className="text-sm">Available paints only (sufficient volume)</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={filters.verified_only}
-                onChange={(e) => handleFiltersChange({ verified_only: e.target.checked })}
-                className="mr-2"
-              />
-              <span className="text-sm">Color-verified paints only</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={filters.calibrated_only}
-                onChange={(e) => handleFiltersChange({ calibrated_only: e.target.checked })}
-                className="mr-2"
-              />
-              <span className="text-sm">Calibrated paints only</span>
-            </label>
-          </div>
-
-          {/* Minimum Volume Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Paint Volume (ml)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.1"
-              value={filters.min_volume_ml || ''}
-              onChange={(e) => handleFiltersChange({
-                min_volume_ml: e.target.value ? parseFloat(e.target.value) : undefined
-              })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="No minimum"
-            />
-          </div>
-        </div>
+        <PaintFiltersSettings
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          availableCollections={availableCollections}
+          availablePaints={availablePaints}
+        />
       )}
 
       {/* Optimization Estimates */}

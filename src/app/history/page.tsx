@@ -217,7 +217,7 @@ const HistoryPage: React.FC = () => {
               {sessions.map((session) => (
                 <SessionCard
                   key={session.id}
-                  session={session}
+                  session={session as any}
                   onFavorite={() => handleSessionAction(session.id, 'favorite')}
                   onDelete={() => handleSessionAction(session.id, 'delete')}
                   compactMode={false}

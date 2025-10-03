@@ -5,12 +5,12 @@ const nextConfig = {
     domains: ['localhost'],
   },
 
-  // Skip type checking and linting during build (we'll do it separately)
+  // Enforce type checking and linting during build (strict mode)
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
 }
 

@@ -23,6 +23,7 @@ import {
   updateLocalLockout,
   clearLocalLockout
 } from '@/lib/auth/rate-limit'
+import { apiPost } from '@/lib/api/client'
 import type { EmailSigninInput, EmailSigninResponse } from '@/types/auth'
 
 interface EmailSigninFormProps {
@@ -38,6 +39,7 @@ export default function EmailSigninForm({
   const [error, setError] = useState<string | null>(null)
   const [isLocked, setIsLocked] = useState(false)
   const [lockoutMinutes, setLockoutMinutes] = useState(0)
+  const [mounted, setMounted] = useState(false)
 
   const {
     register,
@@ -49,9 +51,14 @@ export default function EmailSigninForm({
     mode: 'onSubmit'
   })
 
+  // Set mounted flag to prevent SSR hydration issues with localStorage
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // Check lockout when component mounts and update countdown
   useEffect(() => {
-    if (!isLocked) return
+    if (!mounted || !isLocked) return
 
     const interval = setInterval(() => {
       const email = getValues('email')
@@ -67,51 +74,60 @@ export default function EmailSigninForm({
     }, 60000) // Update every minute
 
     return () => clearInterval(interval)
-  }, [isLocked, getValues])
+  }, [mounted, isLocked, getValues])
 
   const onSubmit = async (data: EmailSigninInput) => {
     setError(null)
 
-    // Check local lockout state (immediate client-side feedback)
-    const lockoutData = checkLocalLockout(data.email)
-    if (lockoutData.isLocked) {
-      setIsLocked(true)
-      setLockoutMinutes(lockoutData.minutesRemaining)
-      setError(
-        `Account locked. Try again in ${lockoutData.minutesRemaining} minute${
-          lockoutData.minutesRemaining !== 1 ? 's' : ''
-        }.`
-      )
-      return
+    // Check local lockout state (immediate client-side feedback) - only if mounted
+    if (mounted) {
+      const lockoutData = checkLocalLockout(data.email)
+      if (lockoutData.isLocked) {
+        setIsLocked(true)
+        setLockoutMinutes(lockoutData.minutesRemaining)
+        setError(
+          `Account locked. Try again in ${lockoutData.minutesRemaining} minute${
+            lockoutData.minutesRemaining !== 1 ? 's' : ''
+          }.`
+        )
+        return
+      }
     }
 
     try {
-      // Call server-side API route
-      const response = await fetch('/api/auth/email-signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
+      // Call server-side API route using shared client
+      const response = await apiPost<EmailSigninResponse>(
+        '/api/auth/email-signin',
+        data
+      )
 
-      const result: EmailSigninResponse = await response.json()
-
-      if (result.success) {
-        // Success - clear lockout and redirect
-        clearLocalLockout(data.email)
-        router.push(redirectTo || result.redirectUrl || '/')
+      if (response.data?.success) {
+        // Success - clear lockout and redirect (only if mounted)
+        if (mounted) {
+          clearLocalLockout(data.email)
+        }
+        router.push(redirectTo || response.data.redirectUrl || '/')
         router.refresh()
       } else {
         // Error - display message and update local lockout tracking
-        setError(result.error || 'Sign-in failed. Please try again.')
+        setError(
+          response.error?.message ||
+          response.data?.error ||
+          'Sign-in failed. Please try again.'
+        )
 
-        // Update local lockout state
-        updateLocalLockout(data.email)
+        // Update local lockout state (only if mounted)
+        if (mounted) {
+          updateLocalLockout(data.email)
+        }
 
-        // Check if now locked out
-        const updatedLockout = checkLocalLockout(data.email)
-        if (updatedLockout.isLocked) {
-          setIsLocked(true)
-          setLockoutMinutes(updatedLockout.minutesRemaining)
+        // Check if now locked out (only if mounted)
+        if (mounted) {
+          const updatedLockout = checkLocalLockout(data.email)
+          if (updatedLockout.isLocked) {
+            setIsLocked(true)
+            setLockoutMinutes(updatedLockout.minutesRemaining)
+          }
         }
       }
     } catch (err) {
@@ -127,16 +143,18 @@ export default function EmailSigninForm({
     <form
       onSubmit={handleSubmit(onSubmit)}
       className={`space-y-4 ${className}`}
+      data-testid="email-signin-form"
       noValidate
     >
       {/* Lockout Warning */}
       {isLocked && (
         <div
+          data-testid="lockout-message"
           role="alert"
           aria-live="polite"
           className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
         >
-          <p className="text-sm text-red-800 dark:text-red-200">
+          <p className="text-sm text-red-800 dark:text-red-200" data-testid="lockout-timer">
             Account locked due to too many failed attempts. Try again in{' '}
             {lockoutMinutes} minute{lockoutMinutes !== 1 ? 's' : ''}.
           </p>
@@ -154,6 +172,7 @@ export default function EmailSigninForm({
         <input
           id="email"
           type="email"
+          data-testid="email-input"
           autoComplete="email"
           disabled={isLocked || isSubmitting}
           aria-label="Email address"
@@ -184,6 +203,7 @@ export default function EmailSigninForm({
         <input
           id="password"
           type="password"
+          data-testid="password-input"
           autoComplete="current-password"
           disabled={isLocked || isSubmitting}
           aria-label="Password"
@@ -210,6 +230,7 @@ export default function EmailSigninForm({
       {/* Error Display */}
       {error && !isLocked && (
         <div
+          data-testid="signin-error"
           className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
           role="alert"
           aria-live="polite"
@@ -221,6 +242,7 @@ export default function EmailSigninForm({
       {/* Submit Button */}
       <button
         type="submit"
+        data-testid="signin-button"
         disabled={isSubmitting || isLocked}
         className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium
                    rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed

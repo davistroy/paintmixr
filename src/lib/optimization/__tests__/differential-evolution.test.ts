@@ -5,11 +5,11 @@
 
 import { DifferentialEvolutionOptimizer } from '../differential-evolution';
 import { LABColor } from '@/lib/color-science/types';
-import { PaintEntry } from '@/lib/database/types';
+import { EnhancedPaintRow } from '@/lib/database/database.types';
 import { calculateDeltaE } from '@/lib/color-science/delta-e';
 
 // Mock paint data for testing
-const mockPaints: PaintEntry[] = [
+const mockPaints: EnhancedPaintRow[] = [
   {
     id: 'paint-1',
     name: 'Titanium White',

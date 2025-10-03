@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import type { ColorValue } from '@/types/types'
+import type { ColorValue } from '@/lib/types'
 
 interface ColorValueProps {
   color: ColorValue
