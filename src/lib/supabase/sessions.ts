@@ -3,7 +3,7 @@
  * Provides business logic and data transformation for session operations
  */
 
-import { createClient } from './client'
+import { createClient as createRouteClient } from './route-handler'
 import type {
   Database,
   MixingSession,
@@ -16,10 +16,10 @@ import type {
 } from '@/types/types'
 
 /**
- * Get current user from client
+ * Get current user from route handler client
  */
 async function getCurrentUser() {
-  const supabase = createClient()
+  const supabase = await createRouteClient()
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) {
     return null
@@ -147,7 +147,7 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
-    const supabase = createClient()
+    const supabase = await createRouteClient()
 
     const {
       limit = 20,
@@ -212,7 +212,7 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
-    const supabase = createClient()
+    const supabase = await createRouteClient()
 
     const { data, error } = await supabase
       .from('mixing_sessions')
@@ -257,7 +257,7 @@ export class SessionService {
       throw new Error('Session type and input method are required')
     }
 
-    const supabase = createClient()
+    const supabase = await createRouteClient()
 
     const sessionData = transformCreateRequest(request, user.id)
 
@@ -293,7 +293,7 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
-    const supabase = createClient()
+    const supabase = await createRouteClient()
 
     const updateData: SessionUpdate = {
       custom_label: updates.custom_label,
@@ -327,7 +327,7 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
-    const supabase = createClient()
+    const supabase = await createRouteClient()
 
     const { error } = await supabase
       .from('mixing_sessions')
@@ -348,7 +348,7 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
-    const supabase = createClient()
+    const supabase = await createRouteClient()
 
     // Start transaction
     const { data: formulaData, error: formulaError } = await (supabase as any)
@@ -403,7 +403,7 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
-    const supabase = createClient()
+    const supabase = await createRouteClient()
 
     // Get current state
     const { data: currentData, error: selectError } = await (supabase as any)
@@ -452,7 +452,7 @@ export class SessionService {
       throw new Error('User not authenticated')
     }
 
-    const supabase = createClient()
+    const supabase = await createRouteClient()
 
     const { data, error } = await supabase
       .from('mixing_sessions')
