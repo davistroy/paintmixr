@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-10-02T23:56:39.499Z",
+  "metrics": {
+    "totalComponents": 26,
+    "totalCodeLines": 5320,
+    "averageSize": 204.6153846153846,
+    "largestComponent": "src/components/optimization/optimization-controls.tsx",
+    "largestSize": 501,
+    "smallestComponent": "src/components/paint/PaintPagination.tsx",
+    "smallestSize": 40
+  }
+}

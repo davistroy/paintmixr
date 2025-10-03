@@ -10,14 +10,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { serverSignOut } from '@/lib/auth/supabase-server'
+import { serverSignOut } from '@/lib/supabase/route-handler'
 
 /**
  * POST /api/auth/signout
  *
  * Signs out the current user
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     // Sign out on server (clears cookies)
     const { success, error } = await serverSignOut()
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
 /**
  * Handle OPTIONS for CORS
  */
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS(_request: NextRequest) {
   return new NextResponse(null, {
     status: 200,
     headers: {

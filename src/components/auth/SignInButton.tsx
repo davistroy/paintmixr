@@ -14,7 +14,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signInWithOAuth } from '@/lib/auth/supabase-client'
+import { signInWithOAuth } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
 
 interface SignInButtonProps {

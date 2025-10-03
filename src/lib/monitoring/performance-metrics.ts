@@ -3,8 +3,7 @@
  * Tracks optimization performance, accuracy metrics, and system health
  */
 
-import { OptimizationResult } from '@/lib/database/types';
-import { LABColor } from '@/lib/color-science/types';
+import { ColorOptimizationResult as OptimizationResult } from '@/types/mixing';
 
 export interface PerformanceMetrics {
   optimization_id: string;
@@ -111,13 +110,11 @@ export class PerformanceMetricsCollector {
   startOptimizationTracking(
     optimizationId: string,
     userId: string,
-    targetColor: LABColor,
     availablePaintsCount: number
   ): OptimizationTracker {
     return new OptimizationTracker(
       optimizationId,
       userId,
-      targetColor,
       availablePaintsCount,
       this
     );
@@ -355,7 +352,6 @@ export class OptimizationTracker {
   constructor(
     private optimizationId: string,
     private userId: string,
-    private targetColor: LABColor,
     private availablePaintsCount: number,
     private metricsCollector: PerformanceMetricsCollector
   ) {
@@ -386,24 +382,24 @@ export class OptimizationTracker {
       user_id: this.userId,
       timestamp: new Date(),
       calculation_time_ms: totalTime,
-      algorithm_used: result.algorithm_used as any || 'auto',
-      iterations_completed: result.performance_metrics.iterations_completed || 0,
-      convergence_achieved: result.quality_metrics.delta_e <= (result.target_delta_e || 2.0),
-      target_delta_e: result.target_delta_e || 2.0,
-      achieved_delta_e: result.quality_metrics.delta_e,
-      accuracy_target_met: result.quality_metrics.delta_e <= (result.target_delta_e || 2.0),
-      color_space_coverage: result.quality_metrics.color_space_coverage || 0.8,
+      algorithm_used: result.optimization_metadata.algorithm_used as any || 'auto',
+      iterations_completed: result.optimization_metadata.iterations_performed || 0,
+      convergence_achieved: result.optimization_metadata.convergence_achieved,
+      target_delta_e: result.formula.target_delta_e || 2.0,
+      achieved_delta_e: result.formula.achieved_delta_e,
+      accuracy_target_met: result.formula.achieved_delta_e <= (result.formula.target_delta_e || 2.0),
+      color_space_coverage: result.optimization_metadata.color_space_coverage || 0.8,
       memory_usage_mb: Math.max(...this.resourceSnapshots.map(s => s.memory)),
       worker_thread_count: 1, // Would be tracked from actual worker usage
       paints_evaluated: this.availablePaintsCount,
-      paints_selected: result.solution.paint_volumes.length,
+      paints_selected: result.formula.paint_components.length,
       collection_size: this.availablePaintsCount,
       verified_paints_ratio: 0.7, // Would be calculated from actual data
       calibrated_paints_ratio: 0.4,
       solution_stability_score: 0.85, // Would be calculated from multiple runs
-      color_mixing_complexity: result.solution.paint_volumes.length,
-      volume_efficiency: result.solution.volume_efficiency || 0.9,
-      cost_efficiency: result.solution.cost_efficiency || 0.8,
+      color_mixing_complexity: result.formula.paint_components.length,
+      volume_efficiency: 0.9, // Would be calculated from actual data
+      cost_efficiency: 0.8, // Would be calculated from actual data
       concurrent_optimizations: 1, // Would be tracked globally
       system_load_factor: 0.6,
       first_result_time_ms: totalTime, // Could track intermediate results

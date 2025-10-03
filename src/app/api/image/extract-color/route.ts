@@ -10,7 +10,7 @@ import type {
   ErrorResponse,
   ColorValue,
 } from '@/types/types'
-import { hexToLab, labToHex } from '@/lib/color-science'
+import { hexToLab } from '@/lib/color-science'
 
 // Request validation schema
 const ImageColorExtractionRequestSchema = z.object({

@@ -13,7 +13,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signOut } from '@/lib/auth/supabase-client'
+import { signOut } from '@/lib/supabase/client'
 import { LogOut, Loader2 } from 'lucide-react'
 
 interface SignOutButtonProps {

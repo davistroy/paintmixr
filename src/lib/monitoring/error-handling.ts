@@ -3,7 +3,7 @@
  * Provides comprehensive error handling for optimization failures
  */
 
-import { OptimizationResult } from '@/lib/database/types';
+import { ColorOptimizationResult as OptimizationResult } from '@/types/mixing';
 import { LABColor } from '@/lib/color-science/types';
 import { globalMetricsCollector } from './performance-metrics';
 
@@ -162,7 +162,7 @@ export class OptimizationErrorHandler {
     targetColor: LABColor,
     availablePaints: any[],
     volumeConstraints?: any,
-    optimizationConfig?: any
+    _optimizationConfig?: any
   ): OptimizationError | null {
     // Validate target color
     if (!this.isValidLABColor(targetColor)) {
@@ -204,7 +204,7 @@ export class OptimizationErrorHandler {
 
     // Validate paint data integrity
     for (const paint of availablePaints) {
-      if (!this.isValidLABColor({ L: paint.lab_l, a: paint.lab_a, b: paint.lab_b })) {
+      if (!this.isValidLABColor({ l: paint.lab_l, a: paint.lab_a, b: paint.lab_b })) {
         return this.createOptimizationError(
           OptimizationErrorCode.PAINT_DATA_CORRUPTED,
           'Invalid paint color data detected',
@@ -274,7 +274,7 @@ export class OptimizationErrorHandler {
         expected_accuracy_degradation: 0.5,
         expected_performance_impact: -0.3,
         user_notification_required: true,
-        execute: async (context) => {
+        execute: async (_context) => {
           // Implementation would retry with higher Delta E target
           return null;
         }
@@ -285,7 +285,7 @@ export class OptimizationErrorHandler {
         expected_accuracy_degradation: 1.0,
         expected_performance_impact: -0.5,
         user_notification_required: true,
-        execute: async (context) => {
+        execute: async (_context) => {
           // Implementation would use legacy algorithm
           return null;
         }
@@ -300,7 +300,7 @@ export class OptimizationErrorHandler {
         expected_accuracy_degradation: 1.5,
         expected_performance_impact: -0.8,
         user_notification_required: true,
-        execute: async (context) => {
+        execute: async (_context) => {
           // Implementation would return partial results
           return null;
         }
@@ -315,7 +315,7 @@ export class OptimizationErrorHandler {
         expected_accuracy_degradation: 3.0,
         expected_performance_impact: -0.9,
         user_notification_required: true,
-        execute: async (context) => {
+        execute: async (_context) => {
           // Implementation would find closest single paint
           return null;
         }
@@ -390,10 +390,10 @@ export class OptimizationErrorHandler {
 
   private isValidLABColor(color: LABColor): boolean {
     return (
-      typeof color.L === 'number' && color.L >= 0 && color.L <= 100 &&
+      typeof color.l === 'number' && color.l >= 0 && color.l <= 100 &&
       typeof color.a === 'number' && color.a >= -128 && color.a <= 127 &&
       typeof color.b === 'number' && color.b >= -128 && color.b <= 127 &&
-      !isNaN(color.L) && !isNaN(color.a) && !isNaN(color.b)
+      !isNaN(color.l) && !isNaN(color.a) && !isNaN(color.b)
     );
   }
 
@@ -443,7 +443,7 @@ export class OptimizationErrorHandler {
   }
 
   private getRecommendedActions(error: OptimizationError): string[] {
-    const actions: Record<OptimizationErrorCode, string[]> = {
+    const actions: Partial<Record<OptimizationErrorCode, string[]>> = {
       [OptimizationErrorCode.INSUFFICIENT_PAINT_COLLECTION]: [
         'Add more paints to your collection',
         'Try selecting paints that cover a wider color range',

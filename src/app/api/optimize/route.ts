@@ -4,10 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/database/supabase-client';
+import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { OptimizationClient } from '@/lib/workers/optimization-client';
-import { LABColor, Paint, VolumeConstraints } from '@/lib/color-science/types';
+import { LABColor, OptimizationVolumeConstraints as VolumeConstraints } from '@/lib/types';
 import { z } from 'zod';
 
 const LABColorSchema = z.object({
@@ -79,7 +79,7 @@ function getOptimizationClient(): OptimizationClient {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     const body = await request.json();
@@ -152,13 +152,10 @@ export async function POST(request: NextRequest) {
 
     // Prepare optimization request
     const volumeConstraints: VolumeConstraints = {
-      min_total_volume_ml: 1.0,
-      max_total_volume_ml: 1000.0,
-      precision_ml: 0.1,
-      max_paint_count: 10,
-      min_paint_volume_ml: 0.5,
-      asymmetric_ratios: true,
-      ...requestData.volume_constraints
+      minVolume: requestData.volume_constraints?.min_total_volume_ml ?? 1.0,
+      maxVolume: requestData.volume_constraints?.max_total_volume_ml ?? 1000.0,
+      targetVolume: requestData.volume_constraints?.min_total_volume_ml,
+      unit: 'ml'
     };
 
     const optimizationConfig = {
@@ -170,49 +167,60 @@ export async function POST(request: NextRequest) {
     };
 
     // Convert database paints to optimization format
-    const paints: Paint[] = availablePaints.map(paint => ({
+    const paints: any[] = availablePaints.map(paint => ({
       id: paint.id,
       name: paint.name,
       brand: paint.brand,
-      lab_color: paint.lab_color as LABColor,
-      rgb_color: paint.rgb_color as { r: number; g: number; b: number },
+      lab_color: paint.lab_color as unknown as LABColor,
+      rgb_color: paint.rgb_color as unknown as { r: number; g: number; b: number },
       hex_color: paint.hex_color,
-      optical_properties: paint.optical_properties as any,
+      optical_properties: paint.optical_properties,
       volume_ml: paint.volume_ml,
       cost_per_ml: paint.cost_per_ml,
       finish_type: paint.finish_type,
-      mixing_compatibility: paint.mixing_compatibility as string[],
-      mixing_restrictions: paint.mixing_restrictions as string[]
+      mixing_compatibility: paint.mixing_compatibility as unknown as string[],
+      mixing_restrictions: paint.mixing_restrictions as unknown as string[]
     }));
 
     // Perform optimization using Web Worker
     const optimizationClient = getOptimizationClient();
-    const optimizationRequest = {
+    const optimizationRequest: any = {
       request_id: `opt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       target_color: requestData.target_color,
       available_paints: paints,
       volume_constraints: volumeConstraints,
+      availability_constraints: [],
+      preferences: {
+        optimization_preference: 'accuracy'
+      },
       optimization_config: optimizationConfig
     };
 
     const result = await optimizationClient.optimize(optimizationRequest);
 
     // Save to mixing history if requested
-    if (requestData.save_to_history && result.success && result.solution) {
+    if (requestData.save_to_history && result.success && result.best_solution) {
       try {
+        const paintVolumes: Record<string, number> = {};
+        result.best_solution.volumes.forEach((volume, index) => {
+          if (volume > 0 && paints[index]) {
+            paintVolumes[paints[index].id] = volume;
+          }
+        });
+
         const historyData = {
           user_id: user.id,
           target_color: requestData.target_color,
-          achieved_color: result.achieved_color,
-          delta_e_achieved: result.delta_e_achieved,
-          paint_volumes: result.solution.paint_volumes,
-          total_volume_ml: Object.values(result.solution.paint_volumes).reduce((sum, vol) => sum + vol, 0),
-          mixing_time_minutes: Math.round(result.optimization_time_ms / 60000 * 100) / 100,
-          algorithm_used: result.algorithm_used || optimizationConfig.algorithm,
-          iterations_completed: result.iterations_completed || 0,
-          optimization_time_ms: result.optimization_time_ms,
-          convergence_achieved: result.delta_e_achieved <= optimizationConfig.target_delta_e,
-          color_accuracy_score: Math.max(0, 100 - (result.delta_e_achieved / optimizationConfig.target_delta_e) * 100),
+          achieved_color: result.best_solution.predicted_color,
+          delta_e_achieved: result.best_solution.delta_e,
+          paint_volumes: paintVolumes,
+          total_volume_ml: result.best_solution.total_volume,
+          mixing_time_minutes: Math.round(result.optimization_stats.time_elapsed_ms / 60000 * 100) / 100,
+          algorithm_used: result.optimization_stats.algorithm_used || optimizationConfig.algorithm,
+          iterations_completed: result.optimization_stats.iterations_completed || 0,
+          optimization_time_ms: result.optimization_stats.time_elapsed_ms,
+          convergence_achieved: result.optimization_stats.convergenceAchieved,
+          color_accuracy_score: Math.max(0, 100 - (result.best_solution.delta_e / optimizationConfig.target_delta_e) * 100),
           project_name: requestData.project_metadata?.project_name,
           surface_type: requestData.project_metadata?.surface_type,
           application_method: requestData.project_metadata?.application_method,
@@ -227,12 +235,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Update paint usage statistics
-    if (result.success && result.solution) {
+    if (result.success && result.best_solution) {
       try {
-        const paintUpdates = Object.entries(result.solution.paint_volumes).map(([paintId, volume]) => ({
-          paintId,
+        const paintUpdates = result.best_solution.volumes.map((volume, index) => ({
+          paintId: paints[index]?.id,
           volume
-        }));
+        })).filter(update => update.volume > 0 && update.paintId);
 
         await Promise.all(
           paintUpdates.map(({ paintId, volume }) =>
@@ -249,34 +257,34 @@ export async function POST(request: NextRequest) {
         optimization_id: optimizationRequest.request_id,
         success: result.success,
         target_color: requestData.target_color,
-        achieved_color: result.achieved_color,
-        delta_e_achieved: result.delta_e_achieved,
-        solution: result.solution,
+        achieved_color: result.best_solution?.predicted_color,
+        delta_e_achieved: result.best_solution?.delta_e,
+        solution: result.best_solution ? {
+          volumes: result.best_solution.volumes,
+          total_volume: result.best_solution.total_volume,
+          cost: result.best_solution.cost
+        } : null,
         performance: {
-          optimization_time_ms: result.optimization_time_ms,
-          iterations_completed: result.iterations_completed,
-          algorithm_used: result.algorithm_used,
-          convergence_achieved: result.delta_e_achieved <= optimizationConfig.target_delta_e
+          optimization_time_ms: result.optimization_stats.time_elapsed_ms,
+          iterations_completed: result.optimization_stats.iterations_completed,
+          algorithm_used: result.optimization_stats.algorithm_used,
+          convergence_achieved: result.optimization_stats.convergenceAchieved
         },
-        paint_details: result.solution ? Object.keys(result.solution.paint_volumes).map(paintId => {
-          const paint = availablePaints.find(p => p.id === paintId);
+        paint_details: result.best_solution ? result.best_solution.volumes.map((volume, index) => {
+          const paint = paints[index];
+          if (!paint || volume === 0) return null;
           return {
-            id: paintId,
-            name: paint?.name,
-            brand: paint?.brand,
-            volume_ml: result.solution?.paint_volumes[paintId],
-            percentage: ((result.solution?.paint_volumes[paintId] || 0) / Object.values(result.solution?.paint_volumes || {}).reduce((sum, vol) => sum + vol, 1)) * 100
+            id: paint.id,
+            name: paint.name,
+            brand: paint.brand,
+            volume_ml: volume,
+            percentage: (volume / result.best_solution!.total_volume) * 100
           };
-        }) : [],
+        }).filter(Boolean) : [],
         quality_metrics: {
-          color_accuracy_score: result.success ? Math.max(0, 100 - (result.delta_e_achieved / optimizationConfig.target_delta_e) * 100) : 0,
-          meets_target: result.delta_e_achieved <= optimizationConfig.target_delta_e,
-          cost_effectiveness: result.solution ? Object.entries(result.solution.paint_volumes).reduce(
-            (total, [paintId, volume]) => {
-              const paint = availablePaints.find(p => p.id === paintId);
-              return total + (paint?.cost_per_ml || 0) * volume;
-            }, 0
-          ) : 0
+          color_accuracy_score: result.success && result.best_solution ? Math.max(0, 100 - (result.best_solution.delta_e / optimizationConfig.target_delta_e) * 100) : 0,
+          meets_target: result.best_solution ? result.best_solution.delta_e <= optimizationConfig.target_delta_e : false,
+          cost_effectiveness: result.best_solution?.cost || 0
         }
       },
       meta: {
@@ -320,7 +328,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     const url = new URL(request.url);
@@ -337,7 +345,7 @@ export async function GET(request: NextRequest) {
     const repository = new EnhancedPaintRepository(supabase);
     const paintsResult = await repository.getUserPaints(user.id, { archived: false }, { page: 1, limit: 1 });
 
-    const userStats = await repository.getUserPaintStats(user.id);
+    const userStats = await repository.getUserStats(user.id);
 
     return NextResponse.json({
       data: {
@@ -353,10 +361,10 @@ export async function GET(request: NextRequest) {
         },
         user_context: {
           available_paints: paintsResult.pagination?.total_count || 0,
-          total_optimizations: userStats?.mixing_sessions || 0,
-          average_accuracy: userStats?.average_delta_e || 0,
-          most_used_brand: userStats?.most_used_brand,
-          total_paint_volume: userStats?.total_volume_ml || 0
+          total_optimizations: userStats.data?.mixing_sessions || 0,
+          average_accuracy: userStats.data?.average_delta_e || 0,
+          most_used_brand: userStats.data?.most_used_brand,
+          total_paint_volume: userStats.data?.total_volume_ml || 0
         },
         performance_targets: {
           target_delta_e: 2.0,

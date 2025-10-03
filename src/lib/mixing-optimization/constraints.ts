@@ -1,5 +1,15 @@
-import { Paint } from '@/lib/types/paint';
+import { Paint } from '@/lib/types';
 import { Matrix } from 'ml-matrix';
+
+// Re-export utility functions for backward compatibility
+export {
+  validateVolumeConstraints,
+  normalizeVolumes,
+  applyMinimumVolume,
+  isWithinTotalVolumeLimit,
+  calculateTotalVolume,
+  createSimpleConstraints
+} from './constraint-utils';
 
 export interface VolumeConstraints {
   min_total_volume: number;
@@ -206,7 +216,7 @@ export class ConstraintValidator {
       totalPenalty += penalty;
     });
 
-    const feasibilityScore = Math.max(0, 1 - (hardConstraintViolations / this.constraints.filter(c => c.severity === 'hard').length));
+    const feasibility_score = Math.max(0, 1 - (hardConstraintViolations / this.constraints.filter(c => c.severity === 'hard').length));
     const suggestions = this.generateSuggestions(solution, paints, violatedConstraints);
 
     return {
@@ -258,7 +268,7 @@ export class ConstraintValidator {
     const lowerBounds: number[] = [];
     const upperBounds: number[] = [];
 
-    paints.forEach((paint, index) => {
+    paints.forEach((paint, _index) => {
       let minVol = this.volumeConstraints.min_paint_volume;
       let maxVol = this.volumeConstraints.max_paint_volume;
 

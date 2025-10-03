@@ -9,7 +9,7 @@
  * research.md optimization algorithm requirements.
  */
 
-import { LABColor, PaintComponent, VolumeConstraints, PerformanceMetrics } from './mixing';
+import { LABColor } from './mixing';
 
 // Main optimization engine interface
 export interface AccuracyOptimizationEngine {

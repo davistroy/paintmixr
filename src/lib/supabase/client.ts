@@ -1,327 +1,105 @@
 /**
- * Supabase client configuration
- * Provides typed client with database schema and authentication
+ * Supabase Browser Client Factory
+ * Feature: 005-use-codebase-analysis
+ * Task: T046
+ *
+ * Creates Supabase client for browser/client components using @supabase/ssr.
+ * Sessions are persisted via cookies for security and SSR compatibility.
+ *
+ * Usage:
+ * ```typescript
+ * import { createClient } from '@/lib/supabase/client'
+ * const supabase = createClient()
+ * ```
  */
 
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/types'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
-
 /**
- * Supabase client with typed database schema
- * Configured for client-side usage with anonymous key
+ * Create Supabase browser client with cookie-based session storage
+ *
+ * Returns a client for use in client components and browser contexts.
+ * Sessions are automatically persisted via cookies (not localStorage).
+ *
+ * @returns SupabaseClient for browser use
+ * @throws Error if environment variables are missing
  */
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce', // Use PKCE flow for better security
-  },
-  global: {
-    headers: {
-      'x-application-name': 'PaintMixr',
-    },
-  },
-})
+export function createClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-/**
- * Server-side Supabase client for API routes
- * Uses service role key for admin operations
- */
-export const createServerSupabaseClient = () => {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-  if (!serviceRoleKey) {
-    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable')
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables (NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY)')
   }
 
-  return createClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-    global: {
-      headers: {
-        'x-application-name': 'PaintMixr-Server',
-      },
-    },
-  })
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey)
 }
 
 /**
- * Get current user session
+ * Sign in with OAuth provider
+ * Initiates OAuth flow for browser clients
  */
-export const getCurrentUser = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession()
+export async function signInWithOAuth(
+  provider: 'google' | 'azure' | 'facebook',
+  redirectTo?: string
+) {
+  const supabase = createClient()
 
-  if (error) {
-    console.error('Error getting user session:', error)
-    return null
-  }
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
 
-  return session?.user || null
-}
-
-/**
- * Sign in with email and password
- */
-export const signInWithPassword = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return data
-}
-
-/**
- * Sign up with email and password
- */
-export const signUpWithPassword = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return data
-}
-
-/**
- * Sign in with Google OAuth
- */
-export const signInWithGoogle = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
+    provider,
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    },
+      redirectTo: `${appUrl}/api/auth/callback`,
+      scopes: provider === 'google' ? 'email profile' : 'email',
+      queryParams: redirectTo
+        ? { redirect_to: encodeURIComponent(redirectTo) }
+        : undefined
+    }
   })
 
   if (error) {
-    throw new Error(error.message)
+    console.error(`OAuth sign-in error (${provider}):`, error)
+    return { data: null, error }
   }
 
-  return data
+  return { data, error: null }
 }
 
 /**
- * Sign out current user
+ * Sign out the current user
+ * Clears session cookies and signs out from Supabase Auth
  */
-export const signOut = async () => {
+export async function signOut() {
+  const supabase = createClient()
+
   const { error } = await supabase.auth.signOut()
 
   if (error) {
-    throw new Error(error.message)
+    console.error('Sign-out error:', error)
+    return { error }
   }
+
+  return { error: null }
 }
 
 /**
- * Reset password
+ * Subscribe to auth state changes
+ * Useful for React components to listen for sign-in/sign-out events
  */
-export const resetPassword = async (email: string) => {
-  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/auth/reset-password`,
-  })
+export function onAuthStateChange(
+  callback: (event: string, session: any) => void
+) {
+  const supabase = createClient()
 
-  if (error) {
-    throw new Error(error.message)
-  }
+  const {
+    data: { subscription }
+  } = supabase.auth.onAuthStateChange(callback)
 
-  return data
-}
-
-/**
- * Update user password
- */
-export const updatePassword = async (password: string) => {
-  const { data, error } = await supabase.auth.updateUser({
-    password,
-  })
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return data
-}
-
-/**
- * Listen to auth state changes
- */
-export const onAuthStateChange = (callback: (event: string, session: any) => void) => {
-  return supabase.auth.onAuthStateChange(callback)
-}
-
-/**
- * Upload image to Supabase Storage
- */
-export const uploadImage = async (file: File, bucket: string = 'images') => {
-  const fileExt = file.name.split('.').pop()
-  const fileName = `${Date.now()}.${fileExt}`
-  const filePath = `${fileName}`
-
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .upload(filePath, file)
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  // Get public URL
-  const { data: { publicUrl } } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(filePath)
-
-  return {
-    path: data.path,
-    publicUrl,
+  // Return unsubscribe function
+  return () => {
+    subscription.unsubscribe()
   }
 }
-
-/**
- * Delete image from Supabase Storage
- */
-export const deleteImage = async (path: string, bucket: string = 'images') => {
-  const { error } = await supabase.storage
-    .from(bucket)
-    .remove([path])
-
-  if (error) {
-    throw new Error(error.message)
-  }
-}
-
-/**
- * Database helper for type-safe queries
- */
-export const db = {
-  /**
-   * Get sessions for current user
-   */
-  sessions: {
-    list: async (params?: {
-      limit?: number
-      offset?: number
-      favorites_only?: boolean
-      session_type?: 'color_matching' | 'ratio_prediction'
-    }) => {
-      let query = supabase
-        .from('mixing_sessions')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (params?.session_type) {
-        query = query.eq('session_type', params.session_type)
-      }
-
-      if (params?.favorites_only) {
-        query = query.eq('is_favorite', true)
-      }
-
-      if (params?.limit) {
-        query = query.limit(params.limit)
-      }
-
-      if (params?.offset) {
-        query = query.range(params.offset, params.offset + (params.limit || 20) - 1)
-      }
-
-      return query
-    },
-
-    get: async (id: string) => {
-      return supabase
-        .from('mixing_sessions')
-        .select(`
-          *,
-          mixing_formulas (
-            *,
-            formula_items (*)
-          )
-        `)
-        .eq('id', id)
-        .single()
-    },
-
-    create: async (session: Database['public']['Tables']['mixing_sessions']['Insert']) => {
-      return supabase
-        .from('mixing_sessions')
-        .insert(session as any)
-        .select()
-        .single()
-    },
-
-    update: async (id: string, updates: Database['public']['Tables']['mixing_sessions']['Update']) => {
-      return supabase
-        .from('mixing_sessions')
-        .update(updates as any)
-        .eq('id', id)
-        .select()
-        .single()
-    },
-
-    delete: async (id: string) => {
-      return supabase
-        .from('mixing_sessions')
-        .delete()
-        .eq('id', id)
-    },
-  },
-
-  /**
-   * Formula operations
-   */
-  formulas: {
-    create: async (formula: Database['public']['Tables']['mixing_formulas']['Insert']) => {
-      return supabase
-        .from('mixing_formulas')
-        .insert(formula as any)
-        .select()
-        .single()
-    },
-
-    delete: async (id: string) => {
-      return supabase
-        .from('mixing_formulas')
-        .delete()
-        .eq('id', id)
-    },
-  },
-
-  /**
-   * Formula items operations
-   */
-  formulaItems: {
-    createMany: async (items: Database['public']['Tables']['formula_items']['Insert'][]) => {
-      return supabase
-        .from('formula_items')
-        .insert(items as any)
-        .select()
-    },
-
-    deleteByFormula: async (formulaId: string) => {
-      return supabase
-        .from('formula_items')
-        .delete()
-        .eq('formula_id', formulaId)
-    },
-  },
-}
-
-export default supabase

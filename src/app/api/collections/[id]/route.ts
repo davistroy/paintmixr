@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/database/supabase-client';
+import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { z } from 'zod';
 
@@ -27,11 +27,11 @@ async function getCurrentUser(supabase: any) {
 }
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     // Validate collection ID
@@ -159,7 +159,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     // Validate collection ID
@@ -266,7 +266,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     // Validate collection ID

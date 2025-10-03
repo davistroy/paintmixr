@@ -42,7 +42,7 @@ const UpdateSessionRequestSchema = z.object({
 })
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse<MixingSessionDetail | ErrorResponse>> {
   try {
@@ -150,7 +150,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: RouteParams
 ): Promise<NextResponse<{ success: boolean } | ErrorResponse>> {
   try {

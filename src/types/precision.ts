@@ -8,7 +8,7 @@
  * specifications for 0.1ml precision targeting.
  */
 
-import { LABColor, PaintComponent } from './mixing';
+import { PaintComponent } from './mixing';
 
 // Precision volume calculation result
 export interface PrecisionVolumeCalculation {

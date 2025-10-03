@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/database/supabase-client';
+import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { z } from 'zod';
 
@@ -48,7 +48,7 @@ async function getCurrentUser(supabase: any) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     // Parse query parameters
@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     const body = await request.json();
@@ -205,7 +205,11 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await repository.createCollection({
-      ...collectionData,
+      name: collectionData.name,
+      description: collectionData.description || null,
+      color_space: collectionData.color_space,
+      is_default: collectionData.is_default,
+      tags: collectionData.tags || null,
       user_id: user.id,
       paint_count: 0,
       total_volume_ml: 0,
@@ -268,7 +272,7 @@ export async function POST(request: NextRequest) {
 // Bulk operations for collections
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createAdminClient();
     const user = await getCurrentUser(supabase);
 
     const body = await request.json();

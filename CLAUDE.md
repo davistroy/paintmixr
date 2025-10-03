@@ -115,7 +115,7 @@ The `update-agent-context.sh` script maintains this CLAUDE.md file by:
 
 This ensures future Claude instances have current project context without manual maintenance.
 
-# Recent Technical Decisions (Last Updated: 2025-09-29)
+# Recent Technical Decisions (Last Updated: 2025-10-02)
 
 ## Constitutional Updates (v1.1.0)
 - **NEW Principle VI**: Real-World Testing & Validation - Cypress E2E testing mandatory
@@ -209,3 +209,81 @@ export const emailSigninSchema = z.object({
 - **E2E tests**: Cypress full auth flow (13 scenarios)
 - **Accessibility**: WCAG 2.1 AA compliance (36 tests, 4.5:1 contrast)
 - **Performance**: Sub-5-second response time (NFR-001)
+
+## Codebase Analysis & TypeScript Strict Mode (Feature 005) - COMPLETED 2025-10-02
+
+### TypeScript Strict Mode Configuration
+- **All strict flags enabled** (`tsconfig.json`):
+  - `strict: true` (master flag)
+  - `strictNullChecks: true` (catch null/undefined access)
+  - `noImplicitAny: true` (require explicit types)
+  - `strictFunctionTypes: true` (function parameter contravariance)
+  - `noUnusedLocals: true` / `noUnusedParameters: true` (dead code detection)
+- **Build enforcement**: Never use `ignoreBuildErrors: true` in `next.config.js`
+- **Liberal suppressions allowed**: Use `@ts-expect-error` or `@ts-ignore` for third-party library issues
+
+### Performance & Security Fixes
+- **N+1 Query Prevention**: Always use `.eq('email', email)` filter in auth queries
+  - Never fetch all users then filter in memory (O(n) → O(1) lookup)
+  - Email index required on `auth.users.email` column
+- **Atomic Lockout Counter**: Use database function `increment_failed_login_attempts()`
+  - Prevents race conditions in concurrent failed auth attempts
+  - Ensures exactly 5 attempts trigger lockout (not 6+ from race)
+- **Lockout Timer Reset**: Attempting login during lockout resets timer to full 15 minutes
+- **OAuth Precedence Check**: Query `auth.identities` table before email/password auth
+  - Return 403 with provider name if non-email identity exists
+
+### SSR-Safe Patterns
+- **localStorage Guards**: Always check `typeof window !== 'undefined'` before access
+  - Use `mounted` flag pattern in React components for SSR safety
+  - Example: `const [mounted, setMounted] = useState(false); useEffect(() => setMounted(true), [])`
+- **Next.js 15 Async searchParams**: All page components must use `Promise<SearchParams>` type
+  ```typescript
+  export default async function Page({ searchParams }: { searchParams: Promise<{...}> }) {
+    const params = await searchParams
+  }
+  ```
+
+### Centralized Type System
+- **Single source of truth**: `/src/lib/types/index.ts` exports all shared types
+- **Import pattern**: Always use `import { ColorValue, Paint } from '@/lib/types'`
+- **Domain-specific naming**: Incompatible duplicates renamed with domain prefix
+  - `OptimizationVolumeConstraints` (backend) vs `UIVolumeConstraints` (frontend)
+- **Type guards included**: `isColorValue()`, `isLABColor()`, `isValidHexColor()`
+
+### Modern Supabase Clients (@supabase/ssr)
+- **One pattern per context**:
+  - Browser: `src/lib/supabase/client.ts` (createBrowserClient)
+  - Server components: `src/lib/supabase/server.ts` (createServerClient)
+  - API routes: `src/lib/supabase/route-handler.ts` (createServerClient)
+  - Admin: `src/lib/supabase/admin.ts` (createClient with service role key)
+- **Session management**: Cookie-based only (never localStorage)
+- **Legacy patterns deleted**: No `@supabase/auth-helpers-nextjs` imports
+
+### Shared Utilities & Code Reuse
+- **API client** (`src/lib/api/client.ts`): Centralized fetch wrapper with error handling
+- **Form schemas** (`src/lib/forms/schemas.ts`): Shared Zod validation schemas
+- **Hooks** (`src/lib/hooks/`): Reusable pagination, filtering, data-fetching logic
+- **Target**: 40-50% code duplication reduction (token-based AST analysis)
+
+### Component Size Standards
+- **Max 300 lines per component** (TSX files)
+- **Refactoring strategies** (both allowed):
+  - Sub-component extraction (EmailInput.tsx, PasswordInput.tsx)
+  - Utility function extraction (validation.ts, metadata-helpers.ts)
+- **Average component size**: Under 250 lines
+
+### Test Coverage Requirements
+- **Critical paths**: 90%+ coverage (lines, branches, functions, statements)
+  - Authentication (`src/lib/auth/`)
+  - Color science (`src/lib/color/`)
+  - Mixing optimization (`src/lib/mixing/`)
+- **No placeholder tests**: All `.skip()` tests must have TODO comments
+- **Cypress E2E**: Full authentication flow (signin, rate limit, lockout, OAuth)
+
+### Common Pitfalls
+1. **Never fetch all users**: Use `.eq()` filter (N+1 query DoS vulnerability)
+2. **SSR hydration**: Check `mounted` flag before rendering localStorage-dependent UI
+3. **Async searchParams**: Next.js 15 requires `await searchParams` in page components
+4. **Type imports**: Import from `@/lib/types`, never local type files
+5. **Supabase clients**: Use modern `@supabase/ssr` patterns, never legacy helpers

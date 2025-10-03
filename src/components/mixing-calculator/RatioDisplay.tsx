@@ -2,7 +2,6 @@
 
 import React from 'react'
 import type { MixingFormula } from '@/types/types'
-import ColorValueComponent from '@/components/color-display/ColorValue'
 
 interface RatioDisplayProps {
   formula: MixingFormula

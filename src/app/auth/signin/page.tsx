@@ -13,7 +13,7 @@
 
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
-import { validateServerAuth } from '@/lib/auth/supabase-server'
+import { validateServerAuth } from '@/lib/supabase/server'
 import SignInButton from '@/components/auth/SignInButton'
 import EmailSigninForm from '@/components/auth/EmailSigninForm'
 
@@ -25,14 +25,17 @@ export const metadata = {
 export default async function SignInPage({
   searchParams
 }: {
-  searchParams: { redirect?: string; error?: string }
+  searchParams: Promise<{ redirect?: string; error?: string }>
 }) {
+  // Await searchParams for Next.js 15 compatibility
+  const params = await searchParams
+
   // Check if user is already authenticated
   const { isAuthenticated } = await validateServerAuth()
 
   if (isAuthenticated) {
     // Redirect authenticated users to home or intended destination
-    const redirectTo = searchParams.redirect || '/'
+    const redirectTo = params.redirect || '/'
     redirect(redirectTo)
   }
 
@@ -51,13 +54,13 @@ export default async function SignInPage({
           </div>
 
           {/* Error message */}
-          {searchParams.error && (
+          {params.error && (
             <div
               className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
               data-testid="error-banner"
             >
               <p className="text-sm text-red-800 dark:text-red-200">
-                {getErrorMessage(searchParams.error)}
+                {getErrorMessage(params.error)}
               </p>
             </div>
           )}
@@ -71,15 +74,15 @@ export default async function SignInPage({
           <div className="space-y-3" data-testid="oauth-providers">
             <SignInButton
               provider="google"
-              redirectTo={searchParams.redirect}
+              redirectTo={params.redirect}
             />
             <SignInButton
               provider="microsoft"
-              redirectTo={searchParams.redirect}
+              redirectTo={params.redirect}
             />
             <SignInButton
               provider="facebook"
-              redirectTo={searchParams.redirect}
+              redirectTo={params.redirect}
             />
           </div>
 
@@ -96,7 +99,7 @@ export default async function SignInPage({
           </div>
 
           {/* Email/Password Form */}
-          <EmailSigninForm redirectTo={searchParams.redirect} />
+          <EmailSigninForm redirectTo={params.redirect} />
 
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">

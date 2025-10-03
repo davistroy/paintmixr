@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import type { ColorValue } from '@/types/types'
+import type { ColorValue } from '@/lib/types'
 import { hexToLab } from '@/lib/color-science'
 
 interface HexInputProps {

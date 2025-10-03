@@ -16,15 +16,17 @@ export const metadata = {
 }
 
 interface ErrorPageProps {
-  searchParams: {
+  searchParams: Promise<{
     error?: string
     error_description?: string
     provider?: string
-  }
+  }>
 }
 
-export default function AuthErrorPage({ searchParams }: ErrorPageProps) {
-  const { error, error_description, provider } = searchParams
+export default async function AuthErrorPage({ searchParams }: ErrorPageProps) {
+  // Await searchParams for Next.js 15 compatibility
+  const params = await searchParams
+  const { error, error_description, provider } = params
 
   const errorInfo = getErrorInfo(error || 'unknown', provider)
 

@@ -3,7 +3,7 @@
  * Implements optical mixing theory for oil paints with scattering and absorption
  */
 
-import { LABColor, rgbToLab, labToRgb, RGBColor } from './color-science'
+import { LABColor } from './color-science'
 
 export interface PaintProperties {
   id: string
@@ -242,11 +242,6 @@ export function predictMixedColor(
   ratio1: number,
   ratio2: number
 ): LABColor {
-  const mixed = mixTwoPaints(paint1, paint2, ratio1, ratio2)
-
-  // Calculate reflectance
-  const reflectance = calculateReflectance(mixed.k, mixed.s)
-
   // For simplified spectral calculation, interpolate between paint LAB values
   // weighted by tinting strength and volume ratios
   const total = ratio1 + ratio2

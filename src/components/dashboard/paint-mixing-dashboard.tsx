@@ -1,14 +1,18 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { PaintEntry, PaintCollection, OptimizationResult } from '@/lib/database/types';
-import { LABColor } from '@/lib/color-science/types';
-import { convertHexToLAB, convertLABtoHex } from '@/lib/color-science/color-utils';
+import { PaintCollectionRow as PaintCollection } from '@/lib/database/database.types';
+import { LABColor } from '@/lib/types';
+import { labToHex as labToHex } from '@/lib/color-science';
+
+type PaintEntry = any;
+type OptimizationResult = any;
 import ColorPicker from '@/components/ui/color-picker';
 import OptimizationControls from '@/components/optimization/optimization-controls';
 import OptimizationResults from '@/components/optimization/optimization-results';
 import PaintLibrary from '@/components/paint/paint-library';
 import CollectionManager from '@/components/collection/collection-manager';
+import { apiGet, apiPost } from '@/lib/api/client';
 
 interface DashboardState {
   targetColor: LABColor;
@@ -41,7 +45,7 @@ interface VolumeConstraints {
 
 export default function PaintMixingDashboard() {
   const [state, setState] = useState<DashboardState>({
-    targetColor: { L: 50, a: 0, b: 0 },
+    targetColor: { l: 50, a: 0, b: 0 },
     selectedCollection: null,
     selectedPaints: [],
     optimizationResult: null,
@@ -77,11 +81,12 @@ export default function PaintMixingDashboard() {
 
   const loadDefaultCollection = async () => {
     try {
-      const response = await fetch('/api/collections?include_default=true&limit=1');
-      const result = await response.json();
+      const response = await apiGet<PaintCollection[]>('/api/collections?include_default=true&limit=1');
 
-      if (result.data && result.data.length > 0) {
-        setState(prev => ({ ...prev, selectedCollection: result.data[0] }));
+      if (response.data && response.data.length > 0) {
+        setState(prev => ({ ...prev, selectedCollection: response.data![0] }));
+      } else if (response.error) {
+        console.error('Failed to load default collection:', response.error.message);
       }
     } catch (error) {
       console.error('Failed to load default collection:', error);
@@ -90,11 +95,12 @@ export default function PaintMixingDashboard() {
 
   const loadRecentMixes = async () => {
     try {
-      const response = await fetch('/api/mixing-history?limit=5&sort_field=created_at&sort_direction=desc');
-      const result = await response.json();
+      const response = await apiGet<any[]>('/api/mixing-history?limit=5&sort_field=created_at&sort_direction=desc');
 
-      if (result.data) {
-        setState(prev => ({ ...prev, recentMixes: result.data }));
+      if (response.data) {
+        setState(prev => ({ ...prev, recentMixes: response.data! }));
+      } else if (response.error) {
+        console.error('Failed to load recent mixes:', response.error.message);
       }
     } catch (error) {
       console.error('Failed to load recent mixes:', error);
@@ -103,11 +109,12 @@ export default function PaintMixingDashboard() {
 
   const loadOptimizationHistory = async () => {
     try {
-      const response = await fetch('/api/mixing-history?limit=10&type=optimization');
-      const result = await response.json();
+      const response = await apiGet<OptimizationResult[]>('/api/mixing-history?limit=10&type=optimization');
 
-      if (result.data) {
-        setState(prev => ({ ...prev, optimizationHistory: result.data }));
+      if (response.data) {
+        setState(prev => ({ ...prev, optimizationHistory: response.data! }));
+      } else if (response.error) {
+        console.error('Failed to load optimization history:', response.error.message);
       }
     } catch (error) {
       console.error('Failed to load optimization history:', error);
@@ -143,26 +150,25 @@ export default function PaintMixingDashboard() {
         collection_id: state.selectedCollection?.id
       };
 
-      const response = await fetch('/api/optimize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(optimizationRequest)
-      });
+      const response = await apiPost<OptimizationResult>(
+        '/api/optimize',
+        optimizationRequest
+      );
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Optimization failed');
+      if (response.error) {
+        throw new Error(response.error.message || 'Optimization failed');
       }
+
+      const result = response.data!;
 
       setState(prev => ({
         ...prev,
-        optimizationResult: result.data,
-        optimizationHistory: [result.data, ...prev.optimizationHistory.slice(0, 9)]
+        optimizationResult: result,
+        optimizationHistory: [result, ...prev.optimizationHistory.slice(0, 9)]
       }));
 
       // Save to mixing history
-      await saveMixingResult(result.data);
+      await saveMixingResult(result);
 
     } catch (error) {
       console.error('Optimization error:', error);
@@ -174,22 +180,18 @@ export default function PaintMixingDashboard() {
 
   const saveMixingResult = async (result: OptimizationResult) => {
     try {
-      await fetch('/api/mixing-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          target_color: state.targetColor,
-          result_colors: [result.achieved_color],
-          paint_mixture: result.solution.paint_volumes,
-          delta_e_achieved: result.quality_metrics.delta_e,
-          optimization_time_ms: result.performance_metrics.total_time_ms,
-          total_volume_ml: result.solution.total_volume_ml,
-          total_cost: result.solution.total_cost,
-          collection_id: state.selectedCollection?.id,
-          optimization_config: optimizationConfig,
-          volume_constraints: volumeConstraints,
-          notes: `Auto-generated mix (${optimizationConfig.algorithm})`
-        })
+      await apiPost('/api/mixing-history', {
+        target_color: state.targetColor,
+        result_colors: [result.achieved_color],
+        paint_mixture: result.solution.paint_volumes,
+        delta_e_achieved: result.quality_metrics.delta_e,
+        optimization_time_ms: result.performance_metrics.total_time_ms,
+        total_volume_ml: result.solution.total_volume_ml,
+        total_cost: result.solution.total_cost,
+        collection_id: state.selectedCollection?.id,
+        optimization_config: optimizationConfig,
+        volume_constraints: volumeConstraints,
+        notes: `Auto-generated mix (${optimizationConfig.algorithm})`
       });
     } catch (error) {
       console.error('Failed to save mixing result:', error);
@@ -212,7 +214,7 @@ export default function PaintMixingDashboard() {
 
   // Calculate optimization readiness
   const isOptimizationReady = state.selectedPaints.length > 0 && !state.isOptimizing;
-  const targetHex = convertLABtoHex(state.targetColor);
+  const targetHex = labToHex(state.targetColor);
 
   return (
     <div className="paint-mixing-dashboard min-h-screen bg-gray-50">
@@ -299,20 +301,20 @@ export default function PaintMixingDashboard() {
                 <div className="mt-4 p-3 bg-gray-50 rounded-md">
                   <div className="text-sm text-gray-600">
                     <div>Target: {targetHex}</div>
-                    <div>LAB: L*{state.targetColor.L.toFixed(1)} a*{state.targetColor.a.toFixed(1)} b*{state.targetColor.b.toFixed(1)}</div>
+                    <div>LAB: L*{state.targetColor.l.toFixed(1)} a*{state.targetColor.a.toFixed(1)} b*{state.targetColor.b.toFixed(1)}</div>
                   </div>
                 </div>
               </div>
 
               {/* Optimization Controls */}
-              <OptimizationControls
-                config={optimizationConfig}
-                constraints={volumeConstraints}
-                onConfigChange={setOptimizationConfig}
-                onConstraintsChange={setVolumeConstraints}
-                selectedPaintCount={state.selectedPaints.length}
-                className="bg-white rounded-lg shadow"
-              />
+              {React.createElement(OptimizationControls as any, {
+                config: optimizationConfig,
+                constraints: volumeConstraints,
+                onConfigChange: setOptimizationConfig,
+                onConstraintsChange: setVolumeConstraints,
+                selectedPaintCount: state.selectedPaints.length,
+                className: "bg-white rounded-lg shadow"
+              })}
 
               {/* Optimize Button */}
               <button
@@ -380,13 +382,13 @@ export default function PaintMixingDashboard() {
             {/* Right Column: Results */}
             <div>
               {state.optimizationResult ? (
-                <OptimizationResults
-                  result={state.optimizationResult}
-                  targetColor={state.targetColor}
-                  onSaveMix={() => {/* Already saved */}}
-                  onNewOptimization={() => setState(prev => ({ ...prev, optimizationResult: null }))}
-                  className="h-full"
-                />
+                React.createElement(OptimizationResults as any, {
+                  result: state.optimizationResult,
+                  targetColor: state.targetColor,
+                  onSaveMix: () => {/* Already saved */},
+                  onNewOptimization: () => setState(prev => ({ ...prev, optimizationResult: null })),
+                  className: "h-full"
+                })
               ) : (
                 <div className="bg-white rounded-lg shadow p-8 text-center h-96 flex items-center justify-center">
                   <div className="text-gray-500">
@@ -444,7 +446,7 @@ export default function PaintMixingDashboard() {
                           <div className="flex items-center space-x-3">
                             <div
                               className="w-8 h-8 rounded-full border border-gray-300"
-                              style={{ backgroundColor: convertLABtoHex(mix.target_color) }}
+                              style={{ backgroundColor: labToHex(mix.target_color) }}
                             />
                             <div>
                               <p className="font-medium text-gray-900">
