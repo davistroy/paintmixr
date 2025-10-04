@@ -28,18 +28,18 @@ const QueryParamsSchema = z.object({
   archived: z.coerce.boolean().default(false)
 });
 
-async function getCurrentUser(supabase: any) {
+async function getCurrentUser() {
+  const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) {
     throw new Error('Unauthorized');
   }
-  return user;
+  return { user, supabase };
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getCurrentUser(supabase);
+    const { user, supabase } = await getCurrentUser();
 
     // Parse query parameters
     const url = new URL(request.url);
@@ -127,8 +127,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getCurrentUser(supabase);
+    const { user, supabase } = await getCurrentUser();
 
     const body = await request.json();
 
@@ -197,8 +196,7 @@ export async function POST(request: NextRequest) {
 // Bulk operations endpoint
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const user = await getCurrentUser(supabase);
+    const { user, supabase } = await getCurrentUser();
 
     const body = await request.json();
     const { paint_ids, updates } = body;
