@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/route-handler';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { EnhancedPaintCreateSchema } from '@/lib/database/models/enhanced-paint';
 import { PaintFilters, PaginationOptions } from '@/lib/database/database.types';
@@ -38,7 +38,7 @@ async function getCurrentUser(supabase: any) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     // Parse query parameters
