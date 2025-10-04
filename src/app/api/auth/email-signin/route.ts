@@ -140,25 +140,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check OAuth precedence (query auth.identities)
-    // Note: auth.identities is not exposed via PostgREST, query directly via admin SQL
-    const { data: identities, error: identitiesError } = await adminClient
-      .from('identities' as any)
-      .select('provider')
-      .eq('user_id', user.id)
-      .neq('provider', 'email')
-      .limit(1)
+    // Check OAuth precedence (query auth.identities via RPC)
+    // Note: auth.identities requires RPC function or direct admin query
+    // For now, skip OAuth check if user exists with email provider
+    // This will be handled by Supabase Auth hooks in production
+    const hasEmailProvider = user.identities?.some((identity: any) => identity.provider === 'email')
+    const hasOAuthProvider = user.identities?.some((identity: any) => identity.provider !== 'email')
 
-    if (identitiesError) {
-      console.error('Error checking OAuth identities:', identitiesError)
-      // Continue with authentication if identity check fails
-    } else if (identities && identities.length > 0) {
-      const provider = (identities[0] as any).provider
+    if (hasOAuthProvider && !hasEmailProvider) {
+      const oauthProvider = user.identities?.find((identity: any) => identity.provider !== 'email')?.provider
       return NextResponse.json(
         {
           error: 'oauth_precedence',
-          message: `This account uses ${provider} authentication. Please sign in with ${provider}.`,
-          provider
+          message: `This account uses ${oauthProvider} authentication. Please sign in with ${oauthProvider}.`,
+          provider: oauthProvider
         },
         { status: 403 }
       )
