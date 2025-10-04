@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-10-03T00:00:46.919Z",
-  "duration": 214719,
+  "timestamp": "2025-10-04T01:42:01.069Z",
+  "duration": 86830,
   "success": false,
   "errorCount": 0,
-  "warningCount": 0,
+  "warningCount": 5,
   "bundleCount": 0,
   "totalSize": 0
 }

@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import type { ColorValue, MixingFormula, CreateSessionRequest } from '@/types/types'
 import { getUserPaintOptions } from '@/lib/user-paints'
+import { labToHex } from '@/lib/color-science'
 import HexInput from '@/components/color-input/HexInput'
 import ColorPicker from '@/components/color-input/ColorPicker'
 import ImageUpload from '@/components/color-input/ImageUpload'
@@ -53,38 +54,89 @@ const PaintMixr: React.FC = () => {
       // Choose API endpoint based on mode
       const endpoint = enhancedMode ? '/api/optimize' : '/api/color-match'
 
+      // Prepare request body based on endpoint
+      const requestBody = enhancedMode
+        ? {
+            // Enhanced mode expects LAB color with uppercase keys
+            target_color: {
+              L: color.lab.l,
+              a: color.lab.a,
+              b: color.lab.b,
+            },
+            optimization_config: {
+              algorithm: 'tpe_hybrid',
+              target_delta_e: 2.0,
+            },
+            volume_constraints: {
+              min_total_volume_ml: 200,
+              max_total_volume_ml: 200,
+              max_paint_count: 8,
+            },
+          }
+        : {
+            // Standard mode
+            target_color: color,
+            total_volume_ml: 200,
+            optimization_preference: 'accuracy',
+          }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          target_color: color,
-          total_volume_ml: 200,
-          optimization_preference: 'accuracy',
-          ...(enhancedMode && {
-            algorithm: 'tpe_hybrid',
-            target_delta_e: 2.0,
-            max_paints: 3,
-          }),
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.message || `API error: ${response.status}`)
+        const errorMessage = errorData.error?.message || errorData.message || `API error: ${response.status}`
+        throw new Error(errorMessage)
       }
 
-      const data = await response.json()
+      const responseData = await response.json()
 
       // Check for error response structure
-      if ('error' in data) {
-        throw new Error(data.message || 'Color matching failed')
+      if ('error' in responseData) {
+        throw new Error(responseData.error.message || 'Color matching failed')
       }
 
-      setFormula(data.formula)
-      setCalculatedColor(data.calculated_color || data.achieved_color)
-      setDeltaE(data.delta_e)
+      // Handle different response formats for enhanced vs standard mode
+      if (enhancedMode) {
+        // Enhanced mode response format from /api/optimize
+        const data = responseData.data
+
+        // Convert achieved color from LAB format to ColorValue format
+        const achievedLab = {
+          l: data.achieved_color.L,
+          a: data.achieved_color.a,
+          b: data.achieved_color.b,
+        }
+        const achievedColor: ColorValue = {
+          hex: labToHex(achievedLab),
+          lab: achievedLab,
+        }
+
+        // Build formula from paint_details
+        const formula: MixingFormula = {
+          total_volume_ml: data.solution?.total_volume || 200,
+          paint_ratios: data.paint_details.map((paint: any) => ({
+            paint_id: paint.id,
+            paint_name: paint.name,
+            volume_ml: paint.volume_ml,
+            percentage: paint.percentage,
+          })),
+        }
+
+        setFormula(formula)
+        setCalculatedColor(achievedColor)
+        setDeltaE(data.delta_e_achieved)
+      } else {
+        // Standard mode response format
+        setFormula(responseData.formula)
+        setCalculatedColor(responseData.calculated_color || responseData.achieved_color)
+        setDeltaE(responseData.delta_e)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to calculate color match')
     } finally {
