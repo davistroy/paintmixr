@@ -30,7 +30,7 @@ const PaintMixr: React.FC = () => {
   const [isCalculating, setIsCalculating] = useState(false)
   const [showSaveForm, setShowSaveForm] = useState(false)
   const [error, setError] = useState<string>('')
-  const [enhancedMode, setEnhancedMode] = useState(false)
+  const [enhancedMode, setEnhancedMode] = useState(true)
 
   // State for ratio prediction mode
   const [paintRatios, setPaintRatios] = useState<PaintRatioInput[]>([
