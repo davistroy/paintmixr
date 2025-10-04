@@ -186,9 +186,9 @@ export type PaintCollection = z.infer<typeof PaintCollectionSchema>;
 export type MixingHistory = z.infer<typeof MixingHistorySchema>;
 
 // Database table definitions for Supabase
-export const ENHANCED_PAINT_TABLE = 'paints';
-export const PAINT_COLLECTION_TABLE = 'paint_collections';
-export const MIXING_HISTORY_TABLE = 'mixing_history';
+export const ENHANCED_PAINT_TABLE = 'paints' as any;
+export const PAINT_COLLECTION_TABLE = 'paint_collections' as any;
+export const MIXING_HISTORY_TABLE = 'mixing_history' as any;
 
 // SQL for creating tables (for reference/migrations)
 export const CREATE_ENHANCED_PAINTS_SQL = `

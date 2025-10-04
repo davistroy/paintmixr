@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       sort_direction: parsedParams.sort_direction
     };
 
-    const repository = new EnhancedPaintRepository(supabase);
+    const repository = new EnhancedPaintRepository(supabase as any);
     const result = await repository.getUserPaints(user.id, filters, pagination);
 
     if (result.error) {
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       user_id: user.id
     });
 
-    const repository = new EnhancedPaintRepository(supabase);
+    const repository = new EnhancedPaintRepository(supabase as any);
     const result = await repository.createPaint(paintData as any);
 
     if (result.error) {
@@ -224,7 +224,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const repository = new EnhancedPaintRepository(supabase);
+    const repository = new EnhancedPaintRepository(supabase as any);
     const result = await repository.bulkUpdatePaints(paint_ids, user.id, updates);
 
     if (result.error) {
