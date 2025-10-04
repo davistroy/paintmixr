@@ -63,7 +63,7 @@ const PaintMixr: React.FC = () => {
         const paintsResponse = await fetch('/api/paints')
         if (paintsResponse.ok) {
           const paintsData = await paintsResponse.json()
-          paintIds = paintsData.paints?.map((p: any) => p.id) || []
+          paintIds = paintsData.data?.map((p: any) => p.id) || []
         }
 
         // If no paints found, show error
