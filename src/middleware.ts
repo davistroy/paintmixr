@@ -44,6 +44,9 @@ function isPublicRoute(pathname: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // TEMPORARY: Disable middleware auth - rely on route-level auth only
+  return NextResponse.next()
+
   // Allow public routes without authentication
   if (isPublicRoute(pathname)) {
     return NextResponse.next()
