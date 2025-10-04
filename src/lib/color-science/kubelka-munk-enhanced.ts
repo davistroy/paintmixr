@@ -108,38 +108,21 @@ export const reflectanceToKS = (reflectance: number, surfaceReflection: number =
   // Clamp reflectance to valid range
   const r = Math.max(0.001, Math.min(0.999, reflectance));
 
-  // Correct for surface reflection
-  const rCorrected = (r - surfaceReflection) / (1 - surfaceReflection);
-  const rClampedCorrected = Math.max(0.001, Math.min(0.999, rCorrected));
+  // Remove surface reflection before K-M calculation
+  const rCorrected = Math.max(0.001, Math.min(0.999, (r - surfaceReflection) / (1 - surfaceReflection)));
 
   // Kubelka-Munk transformation: K/S = (1-R)²/(2R)
-  return Math.pow(1 - rClampedCorrected, 2) / (2 * rClampedCorrected);
+  return Math.pow(1 - rCorrected, 2) / (2 * rCorrected);
 };
 
 // Calculate reflectance from K/S ratio using inverse Kubelka-Munk equation
 export const ksToReflectance = (ksRatio: number, surfaceReflection: number = KUBELKA_MUNK_CONSTANTS.SURFACE_REFLECTION_MATTE): number => {
-  // Solve quadratic equation: K/S = (1-R)²/(2R)
-  // Rearranged: (K/S)R² - 2(K/S)R + (K/S - 1) = 0
-  const a = ksRatio;
-  const b = -2 * ksRatio;
-  const c = ksRatio - 1;
+  // Standard K-M solution: R = 1 + ks - sqrt(ks² + 2*ks)
+  const r = 1 + ksRatio - Math.sqrt(ksRatio * ksRatio + 2 * ksRatio);
+  const rClamped = Math.max(0.001, Math.min(0.999, r));
 
-  const discriminant = b * b - 4 * a * c;
-
-  if (discriminant < 0) {
-    // No real solution, return minimum reflectance
-    return KUBELKA_MUNK_CONSTANTS.TRANSPARENCY_THRESHOLD;
-  }
-
-  // Take the smaller positive root (physical solution)
-  const r1 = (-b - Math.sqrt(discriminant)) / (2 * a);
-  const r2 = (-b + Math.sqrt(discriminant)) / (2 * a);
-
-  let rUncorrected = (r1 > 0 && r1 < 1) ? r1 : r2;
-  rUncorrected = Math.max(0.001, Math.min(0.999, rUncorrected));
-
-  // Apply surface reflection correction
-  const rFinal = rUncorrected * (1 - surfaceReflection) + surfaceReflection;
+  // Add surface reflection back
+  const rFinal = rClamped * (1 - surfaceReflection) + surfaceReflection;
 
   return Math.max(0.001, Math.min(0.999, rFinal));
 };
@@ -153,26 +136,21 @@ export const calculateKubelkaMunkCoefficients = (
 ): KubelkaMunkCoefficients => {
   const ksRatio = reflectanceToKS(reflectance, surfaceReflection);
 
-  // Enhanced calculations considering pigment concentration and film thickness
-  const concentrationFactor = Math.max(KUBELKA_MUNK_CONSTANTS.MIN_CONCENTRATION, pigmentConcentration);
-  const thicknessFactor = Math.max(KUBELKA_MUNK_CONSTANTS.MIN_THICKNESS, filmThickness);
+  // Use provided values directly, only enforce minimums for extreme cases
+  const concentrationFactor = pigmentConcentration > 0 ? pigmentConcentration : KUBELKA_MUNK_CONSTANTS.MIN_CONCENTRATION;
+  const thicknessFactor = filmThickness > 0 ? filmThickness : KUBELKA_MUNK_CONSTANTS.MIN_THICKNESS;
 
-  // Base K and S values (empirical relationships)
-  const baseK = ksRatio * concentrationFactor;
-  const baseS = concentrationFactor / thicknessFactor;
-
-  // Apply thickness corrections for finite film thickness
-  const thicknessCorrection = 1 - Math.exp(-2 * baseS * thicknessFactor);
-  const k = baseK * thicknessCorrection;
-  const s = baseS * thicknessCorrection;
+  // Simplified K and S calculation without aggressive correction
+  const k = ksRatio * concentrationFactor;
+  const s = concentrationFactor;
 
   return {
     k: Math.round(k * KUBELKA_MUNK_CONSTANTS.PRECISION_FACTOR) / KUBELKA_MUNK_CONSTANTS.PRECISION_FACTOR,
     s: Math.round(s * KUBELKA_MUNK_CONSTANTS.PRECISION_FACTOR) / KUBELKA_MUNK_CONSTANTS.PRECISION_FACTOR,
     k_over_s: s > 0 ? k / s : 0,
     surface_reflection: surfaceReflection,
-    film_thickness: filmThickness,
-    pigment_concentration: pigmentConcentration
+    film_thickness: thicknessFactor,
+    pigment_concentration: concentrationFactor
   };
 };
 
@@ -476,11 +454,16 @@ export const calculateRequiredThickness = (
 ): number => {
   const { k, s } = coefficients;
 
-  if (s === 0 || targetOpacity <= 0) return 0;
+  // Handle edge cases
+  if (k === 0 || s === 0) return KUBELKA_MUNK_CONSTANTS.MAX_THICKNESS;
+  if (targetOpacity <= 0) return KUBELKA_MUNK_CONSTANTS.MIN_THICKNESS;
   if (targetOpacity >= 1) return KUBELKA_MUNK_CONSTANTS.MAX_THICKNESS;
 
   const a = (k + s) / s;
-  const b = Math.sqrt(a * a - 1);
+  const b = Math.sqrt(Math.max(0, a * a - 1));
+
+  if (b === 0) return KUBELKA_MUNK_CONSTANTS.MAX_THICKNESS;
+
   const opacityInfinite = (a - b) / (a + b);
 
   if (targetOpacity >= opacityInfinite) {
@@ -490,6 +473,8 @@ export const calculateRequiredThickness = (
   // Solve for thickness
   const numerator = Math.log((1 - targetOpacity) / (1 - targetOpacity / opacityInfinite));
   const denominator = 2 * b * s;
+
+  if (denominator === 0) return KUBELKA_MUNK_CONSTANTS.MAX_THICKNESS;
 
   const thickness = numerator / denominator;
 

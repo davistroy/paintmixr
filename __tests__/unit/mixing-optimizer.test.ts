@@ -42,7 +42,9 @@ describe('Paint Mixing Optimization', () => {
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 5,
         max_total_volume_ml: 100,
-        max_total_volume_ml: 100
+        allow_scaling: true,
+        minimum_component_volume_ml: 5,
+        maximum_component_volume_ml: 100
       }
 
       const result = validateVolumeConstraints(volumes, constraints)
@@ -55,8 +57,10 @@ describe('Paint Mixing Optimization', () => {
       const volumes = [10, 20, 150]
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 5,
-        max_total_volume_ml: 100,
-        max_total_volume_ml: 200
+        max_total_volume_ml: 200,
+        allow_scaling: true,
+        minimum_component_volume_ml: 5,
+        maximum_component_volume_ml: 100
       }
 
       const result = validateVolumeConstraints(volumes, constraints)
@@ -70,7 +74,9 @@ describe('Paint Mixing Optimization', () => {
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 5,
         max_total_volume_ml: 100,
-        max_total_volume_ml: 100
+        allow_scaling: true,
+        minimum_component_volume_ml: 5,
+        maximum_component_volume_ml: 100
       }
 
       const result = validateVolumeConstraints(volumes, constraints)
@@ -83,8 +89,10 @@ describe('Paint Mixing Optimization', () => {
       const volumes = [2, 150, 30]
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 5,
-        max_total_volume_ml: 100,
-        max_total_volume_ml: 100
+        max_total_volume_ml: 200,
+        allow_scaling: true,
+        minimum_component_volume_ml: 5,
+        maximum_component_volume_ml: 100
       }
 
       const result = validateVolumeConstraints(volumes, constraints)
@@ -98,7 +106,7 @@ describe('Paint Mixing Optimization', () => {
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 5,
         max_total_volume_ml: 100,
-        max_total_volume_ml: 100
+        allow_scaling: true
       }
 
       const result = validateVolumeConstraints(volumes, constraints)
@@ -112,7 +120,8 @@ describe('Paint Mixing Optimization', () => {
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 0,
         max_total_volume_ml: 100,
-        max_total_volume_ml: 100
+        allow_scaling: true,
+        minimum_component_volume_ml: 0
       }
 
       const result = validateVolumeConstraints(volumes, constraints)
@@ -125,7 +134,7 @@ describe('Paint Mixing Optimization', () => {
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 0,
         max_total_volume_ml: 100,
-        max_total_volume_ml: 100
+        allow_scaling: true
       }
 
       const result = validateVolumeConstraints(volumes, constraints)
@@ -410,10 +419,13 @@ describe('Paint Mixing Optimization', () => {
   describe('Integration Scenarios', () => {
     it('should validate, normalize, and apply minimum in sequence', () => {
       const volumes = [5, 10, 15]
+      const targetTotal = 60
+      const minVolume = 5
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 5,
-        max_total_volume_ml: 50,
-        max_total_volume_ml: 60
+        max_total_volume_ml: 100,
+        allow_scaling: true,
+        minimum_component_volume_ml: minVolume
       }
 
       // Step 1: Validate
@@ -421,13 +433,13 @@ describe('Paint Mixing Optimization', () => {
       expect(validation.valid).toBe(true)
 
       // Step 2: Normalize
-      const normalized = normalizeVolumes(volumes, constraints.total_volume)
-      expect(calculateTotalVolume(normalized)).toBeCloseTo(constraints.total_volume, 1)
+      const normalized = normalizeVolumes(volumes, targetTotal)
+      expect(calculateTotalVolume(normalized)).toBeCloseTo(targetTotal, 1)
 
       // Step 3: Apply minimum
-      const final = applyMinimumVolume(normalized, constraints.min_volume)
+      const final = applyMinimumVolume(normalized, minVolume)
       for (const vol of final) {
-        expect(vol).toBeGreaterThanOrEqual(constraints.min_volume)
+        expect(vol).toBeGreaterThanOrEqual(minVolume)
       }
     })
 
@@ -436,7 +448,7 @@ describe('Paint Mixing Optimization', () => {
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 10,
         max_total_volume_ml: 100,
-        max_total_volume_ml: 100
+        allow_scaling: true
       }
 
       const validation = validateVolumeConstraints(volumes, constraints)
@@ -449,7 +461,7 @@ describe('Paint Mixing Optimization', () => {
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 10,
         max_total_volume_ml: 100,
-        max_total_volume_ml: 100
+        allow_scaling: true
       }
 
       const validation = validateVolumeConstraints(volumes, constraints)
@@ -459,18 +471,20 @@ describe('Paint Mixing Optimization', () => {
 
     it('should reject formula with insufficient total volume', () => {
       const volumes = [5, 10, 15]
+      const minVolume = 10
+      const targetTotal = 100
       const constraints: VolumeConstraints = {
         min_total_volume_ml: 10,
         max_total_volume_ml: 100,
-        max_total_volume_ml: 100
+        allow_scaling: true
       }
 
       // Total is 30ml, but after applying minimum (10ml each), it would be 30ml
       // which is still less than required 100ml total
-      const adjusted = applyMinimumVolume(volumes, constraints.min_volume)
+      const adjusted = applyMinimumVolume(volumes, minVolume)
       const total = calculateTotalVolume(adjusted)
 
-      expect(total).toBeLessThan(constraints.total_volume)
+      expect(total).toBeLessThan(targetTotal)
     })
 
     it('should handle asymmetric mixing ratios', () => {

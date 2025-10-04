@@ -292,14 +292,63 @@ export function optimizePaintRatios(
     }]
   }
 
-  // Simple ratio optimization - equal parts as starting point
-  const basePercentage = 100 / selectedPaints.length
+  // Weighted ratio optimization based on color distance
+  // Paints closer to target color get higher weight
+  const totalDistance = selectedPaints.reduce((sum, p) => sum + p.distance, 0)
 
-  return selectedPaints.map(({ paint }) => ({
-    paint_id: paint.id,
-    paint_name: paint.name,
-    volume_ml: basePercentage * 2, // 200ml total default
-    percentage: basePercentage
+  // Inverse distance weighting - closer paints get more weight
+  const weights = selectedPaints.map(p => {
+    // Avoid division by zero for exact matches
+    const inverseDistance = p.distance === 0 ? 1000 : 1 / (p.distance + 0.1)
+    return inverseDistance
+  })
+
+  // Normalize weights to sum to 100%
+  const weightSum = weights.reduce((a, b) => a + b, 0)
+  const normalizedWeights = weights.map(w => (w / weightSum) * 100)
+
+  // Simple gradient descent optimization (50 iterations)
+  let bestRatios = normalizedWeights.slice()
+  let bestDeltaE = Infinity
+
+  for (let iteration = 0; iteration < 50; iteration++) {
+    const ratios = iteration === 0
+      ? bestRatios.slice()  // Start with weighted ratios
+      : bestRatios.map(r => Math.max(1, Math.min(98, r + (Math.random() - 0.5) * 20)))
+
+    // Normalize ratios to sum to 100%
+    const sum = ratios.reduce((a, b) => a + b, 0)
+    const normalizedRatios = ratios.map(r => (r / sum) * 100)
+
+    // Calculate mixed color with these ratios
+    const paintRatiosWithProps = selectedPaints.map((item, i) => ({
+      paint_id: item.paint.id,
+      paint_name: item.paint.name,
+      volume_ml: (normalizedRatios[i] / 100) * 200,
+      percentage: normalizedRatios[i],
+      paint_properties: item.paint
+    }))
+
+    try {
+      const mixResult = mixMultiplePaints(paintRatiosWithProps)
+      const deltaE = calculateColorDistance(targetLab, mixResult.calculated_color)
+
+      if (deltaE < bestDeltaE) {
+        bestDeltaE = deltaE
+        bestRatios = normalizedRatios.slice()
+      }
+    } catch (error) {
+      // Skip invalid ratio combinations
+      continue
+    }
+  }
+
+  // Return optimized ratios
+  return selectedPaints.map((item, i) => ({
+    paint_id: item.paint.id,
+    paint_name: item.paint.name,
+    volume_ml: (bestRatios[i] / 100) * 200,
+    percentage: bestRatios[i]
   }))
 }
 
