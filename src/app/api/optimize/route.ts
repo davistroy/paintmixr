@@ -157,17 +157,25 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
     }
 
     // Convert database records to Paint type (using type assertion for Supabase types)
+    // Database schema uses flat columns: hex, lab_l, lab_a, lab_b, k_coefficient, s_coefficient
     const paints: Paint[] = paintsData.map((p: any) => ({
       id: p.id as string,
       name: p.name as string,
       brand: p.brand as string,
       color: {
-        hex: p.hex_color as string,
-        lab: p.lab_color as { l: number; a: number; b: number }
+        hex: p.hex as string,
+        lab: {
+          l: Number(p.lab_l),
+          a: Number(p.lab_a),
+          b: Number(p.lab_b)
+        }
       },
-      opacity: p.opacity as number,
-      tintingStrength: p.tinting_strength as number,
-      kubelkaMunk: p.kubelka_munk as { k: number; s: number },
+      opacity: Number(p.opacity),
+      tintingStrength: Number(p.tinting_strength),
+      kubelkaMunk: {
+        k: Number(p.k_coefficient),
+        s: Number(p.s_coefficient)
+      },
       userId: p.user_id as string,
       createdAt: p.created_at as string,
       updatedAt: p.updated_at as string
