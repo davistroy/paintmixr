@@ -19,6 +19,7 @@ const customJestConfig = {
     '<rootDir>/__tests__/accessibility/',
     '<rootDir>/__tests__/contract/auth-performance.test.ts',
     '<rootDir>/__tests__/lib/auth/session-manager.test.ts',
+    '<rootDir>/__tests__/performance/response-times.test.ts',
   ],
   testMatch: [
     '**/__tests__/**/*.[jt]s?(x)',
