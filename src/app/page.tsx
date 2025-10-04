@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState } from 'react' // Cache bust: 2025-10-04-v2
 import type { ColorValue, MixingFormula, CreateSessionRequest } from '@/types/types'
 import { getUserPaintOptions } from '@/lib/user-paints'
 import { labToHex } from '@/lib/color-science'
