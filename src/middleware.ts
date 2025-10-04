@@ -23,7 +23,10 @@ const PUBLIC_ROUTES = [
   '/api/auth/signout',
   '/api/auth/email-signin',
   '/api/auth/rate-limit-status',
-  '/api/auth/lockout-status'
+  '/api/auth/lockout-status',
+  '/api/paints',
+  '/api/optimize',
+  '/api/sessions'
 ]
 
 /**
