@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react'
 import type { CreateSessionRequest, ColorValue, MixingFormula, InputMethod, SessionType } from '@/types/types'
+import { useToast } from '@/hooks/use-toast'
+import { translateApiError } from '@/lib/errors/user-messages'
 
 interface SaveFormProps {
   sessionType: SessionType
@@ -12,6 +14,7 @@ interface SaveFormProps {
   formula?: MixingFormula
   onSave: (sessionData: CreateSessionRequest) => Promise<void>
   onCancel: () => void
+  onSuccess?: () => void
   isLoading?: boolean
   className?: string
 }
@@ -25,6 +28,7 @@ const SaveForm: React.FC<SaveFormProps> = ({
   formula,
   onSave,
   onCancel,
+  onSuccess,
   isLoading = false,
   className = '',
 }) => {
@@ -32,6 +36,7 @@ const SaveForm: React.FC<SaveFormProps> = ({
   const [notes, setNotes] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [error, setError] = useState('')
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,8 +78,40 @@ const SaveForm: React.FC<SaveFormProps> = ({
       }
 
       await onSave(sessionData)
+
+      // Show success toast
+      toast({
+        title: 'Session saved successfully',
+        variant: 'default',
+        duration: 3000,
+      })
+
+      // Wait 500ms then call onSuccess (parent will close dialog)
+      setTimeout(() => {
+        if (onSuccess) {
+          onSuccess()
+        }
+      }, 500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save session')
+      // Translate error to user-friendly message
+      const userMessage = translateApiError({
+        status: (err as any)?.response?.status,
+        code: (err as any)?.code,
+        message: err instanceof Error ? err.message : undefined,
+      })
+
+      // Show error toast
+      toast({
+        title: userMessage,
+        variant: 'destructive',
+        duration: 5000,
+      })
+
+      // Also log technical error for debugging
+      console.error('Session save failed:', err)
+
+      // Keep inline error as fallback
+      setError(userMessage)
     }
   }
 

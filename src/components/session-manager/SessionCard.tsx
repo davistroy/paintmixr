@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import type { MixingSession } from '@/lib/types'
 import ColorValueComponent from '@/components/color-display/ColorValue'
+import { useToast } from '@/hooks/use-toast'
 
 interface SessionCardProps {
   session: MixingSession
@@ -12,6 +13,7 @@ interface SessionCardProps {
   onDelete?: (sessionId: string) => void
   onEdit?: (sessionId: string) => void
   onView?: (sessionId: string) => void
+  onDetailClick?: (sessionId: string) => void
   showActions?: boolean
   compactMode?: boolean
   className?: string
@@ -19,11 +21,28 @@ interface SessionCardProps {
 
 const SessionCard: React.FC<SessionCardProps> = ({
   session,
+  onDetailClick,
   showActions = true,
   compactMode = false,
   className = '',
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const { toast } = useToast()
+
+  const handleCardClick = () => {
+    if (!onDetailClick) {
+      // Detail view not implemented yet - show placeholder toast
+      toast({
+        title: 'Session details view coming soon',
+        variant: 'default',
+        duration: 3000,
+      })
+      return
+    }
+
+    // Call parent handler (for future implementation)
+    onDetailClick(session.id)
+  }
 
   const isDetailedSession = (s: MixingSession): boolean => {
     return 'input_method' in s
@@ -63,7 +82,11 @@ const SessionCard: React.FC<SessionCardProps> = ({
 
   if (compactMode) {
     return (
-      <div className={`bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow ${className}`}>
+      <div
+        className={`bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow cursor-pointer ${className}`}
+        onClick={handleCardClick}
+        data-testid="session-card"
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Session Type Icon */}
@@ -119,7 +142,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
 
               {/* View */}
               <button
-                onClick={() => {}}
+                onClick={handleCardClick}
                 className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +158,11 @@ const SessionCard: React.FC<SessionCardProps> = ({
   }
 
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow ${className}`}>
+    <div
+      className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer ${className}`}
+      onClick={handleCardClick}
+      data-testid="session-card"
+    >
       {/* Header */}
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-start justify-between">
@@ -173,7 +200,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   <div className="py-1">
                     <button
                       onClick={() => {
-                        
+                        handleCardClick()
                         setIsMenuOpen(false)
                       }}
                       className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"

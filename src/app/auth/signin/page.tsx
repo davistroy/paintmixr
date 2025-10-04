@@ -16,6 +16,7 @@ import { redirect } from 'next/navigation'
 import { validateServerAuth } from '@/lib/supabase/server'
 import SignInButton from '@/components/auth/SignInButton'
 import EmailSigninForm from '@/components/auth/EmailSigninForm'
+import SessionExpiredMessage from '@/components/auth/SessionExpiredMessage'
 
 export const metadata = {
   title: 'Sign In - PaintMixr',
@@ -133,16 +134,6 @@ export default async function SignInPage({
       </div>
     </div>
   )
-}
-
-/**
- * Session expired message component
- * Shows message if user was redirected due to session expiry
- */
-function SessionExpiredMessage() {
-  // In real implementation, check for session_expired param
-  // For now, return null
-  return null
 }
 
 /**

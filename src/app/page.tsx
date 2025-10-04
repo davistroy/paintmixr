@@ -521,6 +521,7 @@ const PaintMixr: React.FC = () => {
                 formula={formula!}
                 onSave={handleSaveSession}
                 onCancel={() => setShowSaveForm(false)}
+                onSuccess={() => setShowSaveForm(false)}
               />
             </div>
           </div>
