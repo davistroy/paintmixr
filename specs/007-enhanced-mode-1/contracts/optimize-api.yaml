@@ -1,0 +1,501 @@
+openapi: 3.1.0
+info:
+  title: Paint Mixing Optimization API
+  description: Enhanced Accuracy Mode server-side optimization endpoint
+  version: 1.0.0
+  contact:
+    name: PaintMixr Development Team
+
+servers:
+  - url: https://paintmixr.vercel.app/api
+    description: Production
+  - url: http://localhost:3000/api
+    description: Development
+
+paths:
+  /optimize:
+    post:
+      summary: Optimize paint mixing formula
+      description: |
+        Generate an optimized paint mixing formula to match a target color.
+        Supports both Standard mode (Delta E ≤ 5.0, 2-3 paints) and Enhanced mode (Delta E ≤ 2.0, 2-5 paints).
+        Enhanced mode runs server-side optimization with 30-second timeout.
+      operationId: optimizePaintFormula
+      tags:
+        - Optimization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationRequest'
+            examples:
+              enhancedMode:
+                summary: Enhanced Accuracy Mode request
+                value:
+                  targetColor:
+                    l: 65
+                    a: 18
+                    b: -5
+                  availablePaints:
+                    - id: "paint-uuid-1"
+                      name: "Titanium White"
+                      k_coefficient: 0.12
+                      s_coefficient: 0.88
+                      opacity: 0.95
+                      tinting_strength: 0.3
+                      lab_values: {l: 95, a: 0, b: 0}
+                      mass_tone_lab: {l: 95, a: 0, b: 0}
+                      undertone_lab: {l: 96, a: -1, b: 1}
+                      transparency_index: 0.136
+                    - id: "paint-uuid-2"
+                      name: "Ultramarine Blue"
+                      k_coefficient: 0.75
+                      s_coefficient: 0.25
+                      opacity: 0.65
+                      tinting_strength: 0.85
+                      lab_values: {l: 35, a: 12, b: -55}
+                      mass_tone_lab: {l: 28, a: 15, b: -62}
+                      undertone_lab: {l: 75, a: 5, b: -45}
+                      transparency_index: 3.0
+                  mode: "enhanced"
+                  maxPaintCount: 5
+                  timeLimit: 28000
+                  accuracyTarget: 2.0
+              standardMode:
+                summary: Standard Mode request
+                value:
+                  targetColor:
+                    l: 50
+                    a: 10
+                    b: 20
+                  availablePaints:
+                    - id: "paint-uuid-3"
+                      name: "Cadmium Red"
+                      k_coefficient: 0.68
+                      s_coefficient: 0.32
+                      opacity: 0.85
+                      tinting_strength: 0.92
+                      lab_values: {l: 45, a: 68, b: 58}
+                      mass_tone_lab: {l: 38, a: 75, b: 65}
+                      undertone_lab: {l: 72, a: 45, b: 38}
+                      transparency_index: 2.125
+                  mode: "standard"
+                  maxPaintCount: 3
+      responses:
+        '200':
+          description: Optimization completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationResponse'
+              examples:
+                successEnhanced:
+                  summary: Enhanced mode success (target met)
+                  value:
+                    success: true
+                    formula:
+                      paintRatios:
+                        - paint_id: "paint-uuid-1"
+                          paint_name: "Titanium White"
+                          volume_ml: 50
+                          percentage: 50
+                        - paint_id: "paint-uuid-2"
+                          paint_name: "Ultramarine Blue"
+                          volume_ml: 30
+                          percentage: 30
+                        - paint_id: "paint-uuid-3"
+                          paint_name: "Cadmium Yellow"
+                          volume_ml: 20
+                          percentage: 20
+                      totalVolume: 100
+                      predictedColor:
+                        l: 64.8
+                        a: 17.9
+                        b: -4.8
+                      deltaE: 0.5
+                      accuracyRating: "excellent"
+                      mixingComplexity: "moderate"
+                      kubelkaMunkK: 0.42
+                      kubelkaMunkS: 0.68
+                      opacity: 0.85
+                    metrics:
+                      timeElapsed: 15234
+                      iterationsCompleted: 342
+                      algorithmUsed: "tpe_hybrid"
+                      convergenceAchieved: true
+                      targetMet: true
+                      earlyTermination: false
+                      initialBestDeltaE: 8.2
+                      finalBestDeltaE: 0.5
+                      improvementRate: 0.939
+                    warnings: []
+                partialResult:
+                  summary: Enhanced mode timeout (partial result)
+                  value:
+                    success: true
+                    formula:
+                      paintRatios:
+                        - paint_id: "paint-uuid-1"
+                          volume_ml: 60
+                          percentage: 60
+                        - paint_id: "paint-uuid-2"
+                          volume_ml: 40
+                          percentage: 40
+                      totalVolume: 100
+                      predictedColor:
+                        l: 67.2
+                        a: 15.3
+                        b: -6.1
+                      deltaE: 3.5
+                      accuracyRating: "good"
+                      mixingComplexity: "simple"
+                      kubelkaMunkK: 0.38
+                      kubelkaMunkS: 0.72
+                      opacity: 0.88
+                    metrics:
+                      timeElapsed: 28012
+                      iterationsCompleted: 512
+                      algorithmUsed: "differential_evolution"
+                      convergenceAchieved: false
+                      targetMet: false
+                      earlyTermination: true
+                      initialBestDeltaE: 9.1
+                      finalBestDeltaE: 3.5
+                      improvementRate: 0.615
+                    warnings:
+                      - "Optimization timed out after 28 seconds. Returning best result found."
+                      - "Target Delta E ≤ 2.0 not achieved. Consider simplifying paint selection or using Standard mode."
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidPaintCount:
+                  summary: Insufficient paint collection
+                  value:
+                    success: false
+                    error: "Validation failed: availablePaints must contain at least 2 paints"
+                    formula: null
+                    metrics: null
+                    warnings: []
+                invalidLAB:
+                  summary: Invalid LAB color values
+                  value:
+                    success: false
+                    error: "Validation failed: targetColor.l must be between 0 and 100"
+                    formula: null
+                    metrics: null
+                    warnings: []
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                optimizationFailure:
+                  summary: Optimization algorithm failure
+                  value:
+                    success: false
+                    error: "Optimization failed: Matrix singular in Kubelka-Munk calculation"
+                    formula: null
+                    metrics:
+                      timeElapsed: 1234
+                      iterationsCompleted: 15
+                      algorithmUsed: "tpe_hybrid"
+                      convergenceAchieved: false
+                      targetMet: false
+                      earlyTermination: true
+                      initialBestDeltaE: null
+                      finalBestDeltaE: null
+                      improvementRate: 0
+                    warnings: []
+        '504':
+          description: Gateway timeout (serverless function exceeded 30s limit)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                serverlessTimeout:
+                  summary: Serverless function timeout
+                  value:
+                    success: false
+                    error: "Server timeout: Optimization exceeded 30-second limit"
+                    formula: null
+                    metrics: null
+                    warnings: []
+
+components:
+  schemas:
+    LABColor:
+      type: object
+      required: [l, a, b]
+      properties:
+        l:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Lightness (0 = black, 100 = white)
+        a:
+          type: number
+          minimum: -128
+          maximum: 127
+          description: Green (-) to Red (+)
+        b:
+          type: number
+          minimum: -128
+          maximum: 127
+          description: Blue (-) to Yellow (+)
+
+    Paint:
+      type: object
+      required:
+        - id
+        - name
+        - k_coefficient
+        - s_coefficient
+        - opacity
+        - tinting_strength
+        - lab_values
+        - mass_tone_lab
+        - undertone_lab
+        - transparency_index
+      properties:
+        id:
+          type: string
+          description: Unique paint identifier (UUID)
+        name:
+          type: string
+          description: Paint display name
+        k_coefficient:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Kubelka-Munk absorption coefficient
+        s_coefficient:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Kubelka-Munk scattering coefficient
+        opacity:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Paint opacity (0 = transparent, 1 = opaque)
+        tinting_strength:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Tinting strength (color intensity in mixtures)
+        lab_values:
+          $ref: '#/components/schemas/LABColor'
+        mass_tone_lab:
+          $ref: '#/components/schemas/LABColor'
+        undertone_lab:
+          $ref: '#/components/schemas/LABColor'
+        transparency_index:
+          type: number
+          minimum: 0
+          description: K/S ratio (transparency measure)
+
+    VolumeConstraints:
+      type: object
+      required: [min_total_volume_ml, max_total_volume_ml]
+      properties:
+        min_total_volume_ml:
+          type: number
+          minimum: 0
+        max_total_volume_ml:
+          type: number
+          minimum: 0
+        minimum_component_volume_ml:
+          type: number
+          minimum: 0
+        maximum_component_volume_ml:
+          type: number
+          minimum: 0
+        allow_scaling:
+          type: boolean
+
+    OptimizationRequest:
+      type: object
+      required: [targetColor, availablePaints, mode]
+      properties:
+        targetColor:
+          $ref: '#/components/schemas/LABColor'
+        availablePaints:
+          type: array
+          items:
+            $ref: '#/components/schemas/Paint'
+          minItems: 2
+          maxItems: 100
+        mode:
+          type: string
+          enum: [standard, enhanced]
+        volumeConstraints:
+          $ref: '#/components/schemas/VolumeConstraints'
+        maxPaintCount:
+          type: integer
+          minimum: 2
+          maximum: 5
+          default: 5
+        timeLimit:
+          type: integer
+          minimum: 1000
+          maximum: 30000
+          default: 28000
+          description: Optimization timeout in milliseconds
+        accuracyTarget:
+          type: number
+          minimum: 0
+          default: 2.0
+          description: Target Delta E accuracy
+
+    PaintRatio:
+      type: object
+      required: [paint_id, volume_ml, percentage]
+      properties:
+        paint_id:
+          type: string
+        paint_name:
+          type: string
+        volume_ml:
+          type: number
+          minimum: 0
+        percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+
+    OptimizedFormula:
+      type: object
+      required:
+        - paintRatios
+        - totalVolume
+        - predictedColor
+        - deltaE
+        - accuracyRating
+        - mixingComplexity
+        - kubelkaMunkK
+        - kubelkaMunkS
+        - opacity
+      properties:
+        paintRatios:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaintRatio'
+          minItems: 2
+          maxItems: 5
+        totalVolume:
+          type: number
+          minimum: 0
+        predictedColor:
+          $ref: '#/components/schemas/LABColor'
+        deltaE:
+          type: number
+          minimum: 0
+          description: CIE 2000 Delta E color difference
+        accuracyRating:
+          type: string
+          enum: [excellent, good, acceptable, poor]
+        mixingComplexity:
+          type: string
+          enum: [simple, moderate, complex]
+        kubelkaMunkK:
+          type: number
+          minimum: 0
+          maximum: 1
+        kubelkaMunkS:
+          type: number
+          minimum: 0
+          maximum: 1
+        opacity:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    PerformanceMetrics:
+      type: object
+      required:
+        - timeElapsed
+        - iterationsCompleted
+        - algorithmUsed
+        - convergenceAchieved
+        - targetMet
+        - earlyTermination
+        - initialBestDeltaE
+        - finalBestDeltaE
+        - improvementRate
+      properties:
+        timeElapsed:
+          type: number
+          minimum: 0
+          description: Milliseconds elapsed
+        iterationsCompleted:
+          type: integer
+          minimum: 0
+        algorithmUsed:
+          type: string
+          enum: [differential_evolution, tpe_hybrid, auto]
+        convergenceAchieved:
+          type: boolean
+        targetMet:
+          type: boolean
+        earlyTermination:
+          type: boolean
+        initialBestDeltaE:
+          type: number
+          minimum: 0
+          nullable: true
+        finalBestDeltaE:
+          type: number
+          minimum: 0
+          nullable: true
+        improvementRate:
+          type: number
+
+    OptimizationResponse:
+      type: object
+      required: [success, formula, metrics, warnings]
+      properties:
+        success:
+          type: boolean
+        formula:
+          oneOf:
+            - $ref: '#/components/schemas/OptimizedFormula'
+            - type: "null"
+        metrics:
+          oneOf:
+            - $ref: '#/components/schemas/PerformanceMetrics'
+            - type: "null"
+        warnings:
+          type: array
+          items:
+            type: string
+        error:
+          type: string
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      required: [success, error, formula, metrics, warnings]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+        formula:
+          type: "null"
+        metrics:
+          oneOf:
+            - $ref: '#/components/schemas/PerformanceMetrics'
+            - type: "null"
+        warnings:
+          type: array
+          items:
+            type: string

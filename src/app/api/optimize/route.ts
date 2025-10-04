@@ -1,401 +1,357 @@
 /**
- * Enhanced Color Optimization API with Web Worker integration
- * Provides real-time paint mixing optimization targeting Delta E ≤ 2.0
+ * POST /api/optimize - Enhanced Paint Mixing Optimization API (T016)
+ * Feature: 007-enhanced-mode-1
+ *
+ * Server-side optimization endpoint supporting both Standard and Enhanced modes.
+ * Validates requests, fetches user paints, and runs optimization algorithms.
+ *
+ * Enhanced Mode: Delta E ≤ 2.0, 2-5 paints, 30-second timeout
+ * Standard Mode: Delta E ≤ 5.0, 2-3 paints, faster optimization
+ *
+ * Contract: /specs/007-enhanced-mode-1/contracts/optimize-api.yaml
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/route-handler';
-import { createClient as createAdminClient } from '@/lib/supabase/admin';
-import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
-import { OptimizationClient } from '@/lib/workers/optimization-client';
-import { LABColor, OptimizationVolumeConstraints as VolumeConstraints } from '@/lib/types';
+import { optimizeEnhanced } from '@/lib/mixing-optimization/enhanced-optimizer';
+import {
+  enhancedOptimizationRequestSchema,
+  formatZodError,
+  safeValidateWithSchema
+} from '@/lib/mixing-optimization/validation';
+import {
+  EnhancedOptimizationRequest,
+  EnhancedOptimizationResponse,
+  Paint
+} from '@/lib/types';
 import { z } from 'zod';
 
-const LABColorSchema = z.object({
-  L: z.number().min(0).max(100),
-  a: z.number().min(-128).max(127),
-  b: z.number().min(-128).max(127)
-});
+/**
+ * Vercel serverless function timeout configuration
+ * Max 30 seconds for Pro tier (algorithm uses 28s internally for 2s buffer)
+ */
+export const maxDuration = 30;
 
-const VolumeConstraintsSchema = z.object({
-  min_total_volume_ml: z.number().min(0.1).default(1.0),
-  max_total_volume_ml: z.number().min(1).max(10000).default(1000),
-  precision_ml: z.number().min(0.1).max(1.0).default(0.1),
-  max_paint_count: z.number().min(2).max(20).default(10),
-  min_paint_volume_ml: z.number().min(0.1).default(0.5),
-  asymmetric_ratios: z.boolean().default(true)
-});
-
-const OptimizationConfigSchema = z.object({
-  algorithm: z.enum(['differential_evolution', 'tpe_hybrid', 'auto']).default('auto'),
-  max_iterations: z.number().min(100).max(10000).default(2000),
-  target_delta_e: z.number().min(0.1).max(5.0).default(2.0),
-  time_limit_ms: z.number().min(1000).max(30000).default(10000),
-  require_color_verification: z.boolean().default(false),
-  require_calibration: z.boolean().default(false)
-});
-
-const OptimizationRequestSchema = z.object({
-  target_color: LABColorSchema,
-  volume_constraints: VolumeConstraintsSchema.optional(),
-  optimization_config: OptimizationConfigSchema.optional(),
-  paint_filters: z.object({
-    collection_id: z.string().uuid().optional(),
-    available_only: z.boolean().default(true),
-    min_volume_ml: z.number().min(0).optional(),
-    verified_only: z.boolean().default(false),
-    calibrated_only: z.boolean().default(false),
-    excluded_paint_ids: z.array(z.string().uuid()).optional()
-  }).optional(),
-  save_to_history: z.boolean().default(true),
-  project_metadata: z.object({
-    project_name: z.string().optional(),
-    surface_type: z.string().optional(),
-    application_method: z.string().optional(),
-    environmental_conditions: z.object({
-      temperature_c: z.number().optional(),
-      humidity_percent: z.number().optional(),
-      lighting_conditions: z.string().optional()
-    }).optional()
-  }).optional()
-});
-
-async function getCurrentUser(supabase: any) {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) {
-    throw new Error('Unauthorized');
-  }
-  return user;
-}
-
-// Global optimization client instance
-let optimizationClient: OptimizationClient | null = null;
-
-function getOptimizationClient(): OptimizationClient {
-  if (!optimizationClient) {
-    optimizationClient = new OptimizationClient();
-  }
-  return optimizationClient;
-}
-
-export async function POST(request: NextRequest) {
+/**
+ * POST /api/optimize
+ *
+ * Optimizes paint mixing formula to match target color.
+ * Auto-selects algorithm based on paint count (≤8: DE, >8: TPE).
+ *
+ * @param request - NextRequest with EnhancedOptimizationRequest body
+ * @returns NextResponse with EnhancedOptimizationResponse
+ *
+ * Error Responses:
+ * - 400: Invalid request (validation failure)
+ * - 401: Unauthorized (no user session)
+ * - 404: Paint IDs not found in user's collection
+ * - 500: Server error (algorithm crash, database error)
+ * - 504: Gateway timeout (>30s)
+ */
+export async function POST(request: NextRequest): Promise<NextResponse<EnhancedOptimizationResponse>> {
   try {
-    // Use route handler client for authentication
-    const authClient = await createClient();
-    const user = await getCurrentUser(authClient);
+    // 1. Authenticate user
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    const body = await request.json();
-    const requestData = OptimizationRequestSchema.parse(body);
-
-    // Use admin client for repository operations (different Database type)
-    const adminClient = createAdminClient();
-    const repository = new EnhancedPaintRepository(adminClient);
-    const paintFilters = {
-      archived: false,
-      ...requestData.paint_filters,
-      ...(requestData.paint_filters?.min_volume_ml && {
-        min_volume: requestData.paint_filters.min_volume_ml
-      }),
-      ...(requestData.paint_filters?.verified_only && {
-        color_verified: true
-      }),
-      ...(requestData.paint_filters?.calibrated_only && {
-        calibrated: true
-      })
-    };
-
-    const paintsResult = await repository.getUserPaints(user.id, paintFilters, {
-      page: 1,
-      limit: 100,
-      sort_field: 'last_used_at',
-      sort_direction: 'desc'
-    });
-
-    if (paintsResult.error) {
+    if (authError || !user) {
       return NextResponse.json(
         {
-          error: {
-            code: 'PAINT_FETCH_ERROR',
-            message: 'Failed to fetch user paints',
-            details: paintsResult.error.message
-          }
+          success: false,
+          formula: null,
+          metrics: null,
+          warnings: [],
+          error: 'Authentication required'
+        },
+        { status: 401 }
+      );
+    }
+
+    // 2. Parse and validate request body
+    let requestBody: unknown;
+    try {
+      requestBody = await request.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        {
+          success: false,
+          formula: null,
+          metrics: null,
+          warnings: [],
+          error: 'Invalid JSON in request body'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Build request schema that accepts paint IDs (string[]) instead of full Paint objects
+    const requestSchemaForAPI = enhancedOptimizationRequestSchema;
+
+    const validationResult = safeValidateWithSchema(requestSchemaForAPI, requestBody);
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          formula: null,
+          metrics: null,
+          warnings: [],
+          error: formatZodError(validationResult.error)
+        },
+        { status: 400 }
+      );
+    }
+
+    const validatedRequest = validationResult.data;
+
+    // 3. Fetch user's paints from database (RLS enforced)
+    const paintIds = validatedRequest.availablePaints;
+
+    const { data: paintsData, error: paintsError } = await supabase
+      .from('paints')
+      .select('*')
+      .in('id', paintIds)
+      .eq('user_id', user.id); // RLS enforcement - user can only access their paints
+
+    if (paintsError) {
+      console.error('Error fetching paints:', paintsError);
+      return NextResponse.json(
+        {
+          success: false,
+          formula: null,
+          metrics: null,
+          warnings: [],
+          error: 'Failed to fetch paints from database'
         },
         { status: 500 }
       );
     }
 
-    let availablePaints = paintsResult.data || [];
-
-    // Filter out excluded paints
-    if (requestData.paint_filters?.excluded_paint_ids?.length) {
-      availablePaints = availablePaints.filter(
-        paint => !requestData.paint_filters?.excluded_paint_ids?.includes(paint.id)
-      );
-    }
-
-    // Filter by collection if specified
-    if (requestData.paint_filters?.collection_id) {
-      availablePaints = availablePaints.filter(
-        paint => paint.collection_id === requestData.paint_filters?.collection_id
-      );
-    }
-
-    if (availablePaints.length < 2) {
+    if (!paintsData || paintsData.length === 0) {
       return NextResponse.json(
         {
-          error: {
-            code: 'INSUFFICIENT_PAINTS',
-            message: 'At least 2 paints are required for optimization',
-            details: `Found ${availablePaints.length} paints matching criteria`
-          }
+          success: false,
+          formula: null,
+          metrics: null,
+          warnings: [],
+          error: 'No paints found with provided IDs. Ensure paint IDs belong to authenticated user.'
         },
-        { status: 400 }
+        { status: 404 }
       );
     }
 
-    // Prepare optimization request
-    const volumeConstraints: VolumeConstraints = {
-      minVolume: requestData.volume_constraints?.min_total_volume_ml ?? 1.0,
-      maxVolume: requestData.volume_constraints?.max_total_volume_ml ?? 1000.0,
-      targetVolume: requestData.volume_constraints?.min_total_volume_ml,
-      unit: 'ml'
-    };
+    // Check if all requested paints were found
+    if (paintsData.length < paintIds.length) {
+      const foundIds = new Set(paintsData.map((p: any) => p.id as string));
+      const missingIds = paintIds.filter(id => !foundIds.has(id));
+      return NextResponse.json(
+        {
+          success: false,
+          formula: null,
+          metrics: null,
+          warnings: [],
+          error: `Paint IDs not found: ${missingIds.join(', ')}`
+        },
+        { status: 404 }
+      );
+    }
 
-    const optimizationConfig = {
-      algorithm: 'auto' as const,
-      max_iterations: 2000,
-      target_delta_e: 2.0,
-      time_limit_ms: 10000,
-      ...requestData.optimization_config
-    };
-
-    // Convert database paints to optimization format
-    const paints: any[] = availablePaints.map(paint => ({
-      id: paint.id,
-      name: paint.name,
-      brand: paint.brand,
-      lab_color: paint.lab_color as unknown as LABColor,
-      rgb_color: paint.rgb_color as unknown as { r: number; g: number; b: number },
-      hex_color: paint.hex_color,
-      optical_properties: paint.optical_properties,
-      volume_ml: paint.volume_ml,
-      cost_per_ml: paint.cost_per_ml,
-      finish_type: paint.finish_type,
-      mixing_compatibility: paint.mixing_compatibility as unknown as string[],
-      mixing_restrictions: paint.mixing_restrictions as unknown as string[]
+    // Convert database records to Paint type (using type assertion for Supabase types)
+    const paints: Paint[] = paintsData.map((p: any) => ({
+      id: p.id as string,
+      name: p.name as string,
+      brand: p.brand as string,
+      color: {
+        hex: p.hex_color as string,
+        lab: p.lab_color as { l: number; a: number; b: number }
+      },
+      opacity: p.opacity as number,
+      tintingStrength: p.tinting_strength as number,
+      kubelkaMunk: p.kubelka_munk as { k: number; s: number },
+      userId: p.user_id as string,
+      createdAt: p.created_at as string,
+      updatedAt: p.updated_at as string
     }));
 
-    // Perform optimization using Web Worker
-    const optimizationClient = getOptimizationClient();
-    const optimizationRequest: any = {
-      request_id: `opt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      target_color: requestData.target_color,
-      available_paints: paints,
-      volume_constraints: volumeConstraints,
-      availability_constraints: [],
-      preferences: {
-        optimization_preference: 'accuracy'
-      },
-      optimization_config: optimizationConfig
+    // 4. Build EnhancedOptimizationRequest with Paint[] instead of string[]
+    const optimizationRequest: EnhancedOptimizationRequest = {
+      targetColor: validatedRequest.targetColor,
+      availablePaints: paints, // Full Paint objects
+      mode: validatedRequest.mode,
+      volumeConstraints: validatedRequest.volumeConstraints,
+      maxPaintCount: validatedRequest.maxPaintCount,
+      timeLimit: validatedRequest.timeLimit,
+      accuracyTarget: validatedRequest.accuracyTarget
     };
 
-    const result = await optimizationClient.optimize(optimizationRequest);
+    // 5. Run optimization with timeout wrapper
+    const timeLimit = validatedRequest.timeLimit || 28000;
+    let result: { formula: any; metrics: any };
 
-    // Save to mixing history if requested
-    if (requestData.save_to_history && result.success && result.best_solution) {
-      try {
-        const paintVolumes: Record<string, number> = {};
-        result.best_solution.volumes.forEach((volume, index) => {
-          if (volume > 0 && paints[index]) {
-            paintVolumes[paints[index].id] = volume;
-          }
-        });
+    try {
+      // Create timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Optimization timeout exceeded 30 seconds'));
+        }, timeLimit + 2000); // 2s buffer beyond internal timeout
+      });
 
-        const historyData = {
-          user_id: user.id,
-          target_color: requestData.target_color,
-          achieved_color: result.best_solution.predicted_color,
-          delta_e_achieved: result.best_solution.delta_e,
-          paint_volumes: paintVolumes,
-          total_volume_ml: result.best_solution.total_volume,
-          mixing_time_minutes: Math.round(result.optimization_stats.time_elapsed_ms / 60000 * 100) / 100,
-          algorithm_used: result.optimization_stats.algorithm_used || optimizationConfig.algorithm,
-          iterations_completed: result.optimization_stats.iterations_completed || 0,
-          optimization_time_ms: result.optimization_stats.time_elapsed_ms,
-          convergence_achieved: result.optimization_stats.convergenceAchieved,
-          color_accuracy_score: Math.max(0, 100 - (result.best_solution.delta_e / optimizationConfig.target_delta_e) * 100),
-          project_name: requestData.project_metadata?.project_name,
-          surface_type: requestData.project_metadata?.surface_type,
-          application_method: requestData.project_metadata?.application_method,
-          environmental_conditions: requestData.project_metadata?.environmental_conditions || null
-        };
+      // Race optimization against timeout
+      result = await Promise.race([
+        optimizeEnhanced(optimizationRequest),
+        timeoutPromise
+      ]);
 
-        await repository.saveMixingHistory(historyData);
-      } catch (historyError) {
-        console.warn('Failed to save mixing history:', historyError);
-        // Don't fail the optimization if history saving fails
-      }
-    }
-
-    // Update paint usage statistics
-    if (result.success && result.best_solution) {
-      try {
-        const paintUpdates = result.best_solution.volumes.map((volume, index) => ({
-          paintId: paints[index]?.id,
-          volume
-        })).filter(update => update.volume > 0 && update.paintId);
-
-        await Promise.all(
-          paintUpdates.map(({ paintId, volume }) =>
-            repository.updatePaintUsageStats(paintId, user.id, volume)
-          )
+    } catch (optimizationError) {
+      // Check if timeout error
+      if (optimizationError instanceof Error && optimizationError.message.includes('timeout')) {
+        return NextResponse.json(
+          {
+            success: false,
+            formula: null,
+            metrics: null,
+            warnings: [],
+            error: `Server timeout: Optimization exceeded ${timeLimit}ms limit`
+          },
+          { status: 504 }
         );
-      } catch (usageError) {
-        console.warn('Failed to update paint usage stats:', usageError);
       }
+
+      // Other optimization errors
+      console.error('Optimization error:', optimizationError);
+      return NextResponse.json(
+        {
+          success: false,
+          formula: null,
+          metrics: null,
+          warnings: [],
+          error: optimizationError instanceof Error
+            ? `Optimization failed: ${optimizationError.message}`
+            : 'Optimization failed: Unknown error'
+        },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      data: {
-        optimization_id: optimizationRequest.request_id,
-        success: result.success,
-        target_color: requestData.target_color,
-        achieved_color: result.best_solution?.predicted_color,
-        delta_e_achieved: result.best_solution?.delta_e,
-        solution: result.best_solution ? {
-          volumes: result.best_solution.volumes,
-          total_volume: result.best_solution.total_volume,
-          cost: result.best_solution.cost
-        } : null,
-        performance: {
-          optimization_time_ms: result.optimization_stats.time_elapsed_ms,
-          iterations_completed: result.optimization_stats.iterations_completed,
-          algorithm_used: result.optimization_stats.algorithm_used,
-          convergence_achieved: result.optimization_stats.convergenceAchieved
-        },
-        paint_details: result.best_solution ? result.best_solution.volumes.map((volume, index) => {
-          const paint = paints[index];
-          if (!paint || volume === 0) return null;
-          return {
-            id: paint.id,
-            name: paint.name,
-            brand: paint.brand,
-            volume_ml: volume,
-            percentage: (volume / result.best_solution!.total_volume) * 100
-          };
-        }).filter(Boolean) : [],
-        quality_metrics: {
-          color_accuracy_score: result.success && result.best_solution ? Math.max(0, 100 - (result.best_solution.delta_e / optimizationConfig.target_delta_e) * 100) : 0,
-          meets_target: result.best_solution ? result.best_solution.delta_e <= optimizationConfig.target_delta_e : false,
-          cost_effectiveness: result.best_solution?.cost || 0
-        }
-      },
-      meta: {
-        request_id: optimizationRequest.request_id,
-        processed_at: new Date().toISOString(),
-        paints_evaluated: paints.length,
-        constraints_applied: Object.keys(volumeConstraints).length,
-        saved_to_history: requestData.save_to_history && result.success
-      }
-    });
+    // 6. Build response with warnings
+    const warnings: string[] = [];
+
+    // Add timeout warning if early termination
+    if (result.metrics.earlyTermination) {
+      warnings.push(`Optimization timed out after ${result.metrics.timeElapsed}ms. Returning best result found.`);
+    }
+
+    // Add accuracy warning if target not met
+    if (!result.metrics.targetMet) {
+      const targetDeltaE = validatedRequest.accuracyTarget || (validatedRequest.mode === 'enhanced' ? 2.0 : 5.0);
+      warnings.push(
+        `Target Delta E ≤ ${targetDeltaE} not achieved (achieved: ${result.formula.deltaE.toFixed(2)}). ` +
+        `Consider simplifying paint selection or using ${validatedRequest.mode === 'enhanced' ? 'Standard' : 'Enhanced'} mode.`
+      );
+    }
+
+    // Add convergence warning if didn't converge
+    if (!result.metrics.convergenceAchieved) {
+      warnings.push('Algorithm did not fully converge. Result may be suboptimal.');
+    }
+
+    // 7. Return success response
+    const response: EnhancedOptimizationResponse = {
+      success: true,
+      formula: result.formula,
+      metrics: result.metrics,
+      warnings,
+      error: null
+    };
+
+    return NextResponse.json(response, { status: 200 });
 
   } catch (error) {
-    console.error('POST /api/optimize error:', error);
+    // Catch-all error handler
+    console.error('Unexpected error in /api/optimize:', error);
 
+    // Check for Zod validation errors
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid optimization request',
-            details: error.errors
-          }
+          success: false,
+          formula: null,
+          metrics: null,
+          warnings: [],
+          error: formatZodError(error)
         },
         { status: 400 }
       );
     }
 
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
-      );
-    }
-
+    // Generic server error
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Optimization failed' } },
+      {
+        success: false,
+        formula: null,
+        metrics: null,
+        warnings: [],
+        error: error instanceof Error
+          ? `Internal server error: ${error.message}`
+          : 'Internal server error'
+      },
       { status: 500 }
     );
   }
 }
 
-export async function GET(request: NextRequest) {
+/**
+ * GET /api/optimize
+ *
+ * Returns API capabilities and optimization metadata.
+ * Useful for clients to discover supported features.
+ *
+ * @returns NextResponse with API capabilities
+ */
+export async function GET() {
   try {
-    // Use route handler client for authentication
-    const authClient = await createClient();
-    const user = await getCurrentUser(authClient);
+    // Authenticate user
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    const url = new URL(request.url);
-    const optimizationId = url.searchParams.get('id');
-
-    if (optimizationId) {
-      // Get specific optimization result (if we implemented caching)
-      return NextResponse.json({
-        error: { code: 'NOT_IMPLEMENTED', message: 'Optimization result caching not implemented' }
-      }, { status: 501 });
-    }
-
-    // Return optimization capabilities and user statistics
-    const adminClient = createAdminClient();
-    const repository = new EnhancedPaintRepository(adminClient);
-    const paintsResult = await repository.getUserPaints(user.id, { archived: false }, { page: 1, limit: 1 });
-
-    const userStats = await repository.getUserStats(user.id);
-
-    return NextResponse.json({
-      data: {
-        capabilities: {
-          max_delta_e_target: 0.5,
-          min_delta_e_target: 2.0,
-          supported_algorithms: ['differential_evolution', 'tpe_hybrid', 'auto'],
-          max_paint_count: 20,
-          precision_ml: 0.1,
-          asymmetric_ratios_supported: true,
-          real_time_optimization: true,
-          web_worker_enabled: true
-        },
-        user_context: {
-          available_paints: paintsResult.pagination?.total_count || 0,
-          total_optimizations: userStats.data?.mixing_sessions || 0,
-          average_accuracy: userStats.data?.average_delta_e || 0,
-          most_used_brand: userStats.data?.most_used_brand,
-          total_paint_volume: userStats.data?.total_volume_ml || 0
-        },
-        performance_targets: {
-          target_delta_e: 2.0,
-          max_optimization_time_ms: 10000,
-          typical_optimization_time_ms: 3000,
-          success_rate_target: 95
-        }
-      },
-      meta: {
-        api_version: '1.0',
-        last_updated: new Date().toISOString()
-      }
-    });
-
-  } catch (error) {
-    console.error('GET /api/optimize error:', error);
-
-    if (error instanceof Error && error.message === 'Unauthorized') {
+    if (authError || !user) {
       return NextResponse.json(
-        { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
+    // Return capabilities
+    return NextResponse.json({
+      success: true,
+      capabilities: {
+        modes: ['standard', 'enhanced'],
+        algorithms: ['differential_evolution', 'tpe_hybrid', 'auto'],
+        maxPaintCount: 5,
+        minPaintCount: 2,
+        maxTimeLimit: 30000,
+        enhancedMode: {
+          targetDeltaE: 2.0,
+          maxPaints: 5,
+          minPaints: 2
+        },
+        standardMode: {
+          targetDeltaE: 5.0,
+          maxPaints: 3,
+          minPaints: 2
+        }
+      },
+      meta: {
+        apiVersion: '1.0',
+        endpoint: '/api/optimize',
+        documentation: '/specs/007-enhanced-mode-1/contracts/optimize-api.yaml'
+      }
+    }, { status: 200 });
+
+  } catch (error) {
+    console.error('GET /api/optimize error:', error);
     return NextResponse.json(
-      { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

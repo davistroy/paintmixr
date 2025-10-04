@@ -176,6 +176,92 @@ export interface RateLimitStatus {
 }
 
 // ============================================================================
+// Enhanced Accuracy Mode Types (Feature 007-enhanced-mode-1)
+// ============================================================================
+
+/**
+ * Enhanced Optimization Request
+ * Server-side color matching optimization targeting Delta E ≤ 2.0
+ */
+export interface EnhancedOptimizationRequest {
+  targetColor: LABColor
+  availablePaints: Paint[]
+  mode: 'standard' | 'enhanced'
+  volumeConstraints?: VolumeConstraints
+  maxPaintCount?: number // 2-5 (default: 5)
+  timeLimit?: number // milliseconds (default: 28000)
+  accuracyTarget?: number // Delta E (default: 2.0)
+}
+
+/**
+ * Volume Constraints for Optimization
+ * Used in Enhanced Mode API requests
+ */
+export interface VolumeConstraints {
+  min_total_volume_ml: number
+  max_total_volume_ml: number
+  minimum_component_volume_ml?: number
+  maximum_component_volume_ml?: number
+  allow_scaling?: boolean
+}
+
+/**
+ * Paint Ratio in Optimized Formula
+ * Individual component with volume and percentage
+ */
+export interface PaintRatio {
+  paint_id: string
+  paint_name?: string
+  volume_ml: number
+  percentage: number
+  paint_properties?: Paint
+}
+
+/**
+ * Optimized Paint Formula
+ * Result of Enhanced mode optimization with 2-5 paint components
+ */
+export interface OptimizedPaintFormula {
+  paintRatios: PaintRatio[]
+  totalVolume: number
+  predictedColor: LABColor
+  deltaE: number
+  accuracyRating: 'excellent' | 'good' | 'acceptable' | 'poor'
+  mixingComplexity: 'simple' | 'moderate' | 'complex'
+  kubelkaMunkK: number // 0-1 absorption coefficient
+  kubelkaMunkS: number // 0-1 scattering coefficient
+  opacity: number // 0-1
+}
+
+/**
+ * Optimization Performance Metrics
+ * Tracking data for optimization quality and convergence
+ */
+export interface OptimizationPerformanceMetrics {
+  timeElapsed: number // milliseconds
+  iterationsCompleted: number
+  algorithmUsed: 'differential_evolution' | 'tpe_hybrid' | 'auto'
+  convergenceAchieved: boolean
+  targetMet: boolean // Delta E ≤ accuracyTarget
+  earlyTermination: boolean // Timeout forced early stop
+  initialBestDeltaE: number
+  finalBestDeltaE: number
+  improvementRate: number // (initial - final) / initial
+}
+
+/**
+ * Enhanced Optimization Response
+ * Complete API response structure for /api/optimize endpoint
+ */
+export interface EnhancedOptimizationResponse {
+  success: boolean
+  formula: OptimizedPaintFormula | null
+  metrics: OptimizationPerformanceMetrics | null
+  warnings: string[]
+  error?: string | null
+}
+
+// ============================================================================
 // Type Guards
 // ============================================================================
 

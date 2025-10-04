@@ -1,5 +1,5 @@
 /**
- * Differential Evolution Optimizer (T023)
+ * Differential Evolution Optimizer (T012, T023)
  *
  * Enhanced Differential Evolution algorithm for color mixing optimization
  * targeting Delta E ≤ 2.0 with asymmetric volume ratios and milliliter precision.
@@ -7,8 +7,16 @@
  *
  * Based on Storn & Price differential evolution with enhancements for
  * constrained optimization and early convergence detection.
+ *
+ * Server-side compatible: NO Web Worker API dependencies.
  */
 
+import {
+  EnhancedOptimizationRequest,
+  OptimizedPaintFormula,
+  OptimizationPerformanceMetrics,
+  PaintRatio
+} from '@/lib/types';
 import {
   LABColor,
   OptimizationPaint,
@@ -775,3 +783,228 @@ export const optimizeWithDE = (
   const optimizer = createDifferentialEvolutionOptimizer(targetColor, availablePaints, constraints, config);
   return optimizer.optimize();
 };
+
+// ============================================================================
+// SERVER-SIDE OPTIMIZATION FUNCTION (T012)
+// ============================================================================
+
+/**
+ * Server-side differential evolution optimization for Enhanced Accuracy Mode.
+ *
+ * This function is compatible with Vercel serverless functions and has NO
+ * Web Worker API dependencies (no postMessage, self, importScripts, etc.).
+ *
+ * Algorithm Parameters (from research.md):
+ * - Population size: 10 × number of paints
+ * - Mutation factor (F): 0.8
+ * - Crossover rate (CR): 0.7
+ * - Convergence: When improvement < 1% for 50 iterations OR timeout
+ * - Constraint handling: Reject solutions with paint ratios outside [0,1] or sum ≠ 1.0
+ *
+ * @param request - Enhanced optimization request with target color, paints, and constraints
+ * @returns Promise resolving to optimized formula and performance metrics
+ *
+ * @example
+ * ```typescript
+ * const result = await optimizeWithDifferentialEvolution({
+ *   targetColor: { l: 65, a: 18, b: -5 },
+ *   availablePaints: userPaints,
+ *   mode: 'enhanced',
+ *   maxPaintCount: 5,
+ *   timeLimit: 28000,
+ *   accuracyTarget: 2.0
+ * });
+ *
+ * console.log(result.formula.deltaE); // Delta E ≤ 2.0
+ * console.log(result.metrics.convergenceAchieved); // true/false
+ * ```
+ */
+export async function optimizeWithDifferentialEvolution(
+  request: EnhancedOptimizationRequest
+): Promise<{
+  formula: OptimizedPaintFormula;
+  metrics: OptimizationPerformanceMetrics;
+}> {
+  const startTime = Date.now();
+  const timeLimit = request.timeLimit || 28000; // Default 28 seconds (2s buffer before 30s Vercel timeout)
+  const accuracyTarget = request.accuracyTarget || (request.mode === 'enhanced' ? 2.0 : 5.0);
+  const maxPaintCount = request.maxPaintCount || 5;
+
+  // Validate inputs
+  if (request.availablePaints.length < 2) {
+    throw new Error('At least 2 paints required for optimization');
+  }
+  if (maxPaintCount < 2 || maxPaintCount > 5) {
+    throw new Error('maxPaintCount must be between 2 and 5');
+  }
+
+  // Convert Paint[] to OptimizationPaint[] for compatibility with existing optimizer
+  const optimizationPaints: OptimizationPaint[] = request.availablePaints.map(paint => ({
+    id: paint.id,
+    name: paint.name,
+    brand: paint.brand,
+    color_space: paint.color.lab,
+    available_volume_ml: 1000, // Assume unlimited for now
+    cost_per_ml: 0.1, // Placeholder cost
+    opacity: paint.opacity,
+    pigment_properties: {
+      scattering_coefficient: paint.kubelkaMunk.s,
+      absorption_coefficient: paint.kubelkaMunk.k,
+      surface_reflection: 0.04,
+      pigment_density: 1.0,
+      lightfastness_rating: 7,
+      composition_category: 'synthetic'
+    }
+  }));
+
+  // Create constraints object
+  const constraints: OptimizationConstraints = {
+    volume_constraints: request.volumeConstraints || {
+      min_total_volume_ml: 100,
+      max_total_volume_ml: 500,
+      allow_scaling: true,
+      minimum_component_volume_ml: 1,
+      maximum_component_volume_ml: 500
+    },
+    accuracy_target: accuracyTarget,
+    max_paint_count: maxPaintCount
+  };
+
+  // Configure DE optimizer
+  const populationSize = Math.min(
+    DE_CONSTANTS.MAX_POPULATION_SIZE,
+    Math.max(DE_CONSTANTS.MIN_POPULATION_SIZE, optimizationPaints.length * DE_CONSTANTS.POPULATION_MULTIPLIER)
+  );
+
+  const deConfig: Partial<DEConfig> = {
+    strategy: 'adaptive',
+    population_size: populationSize,
+    F: 0.8, // Mutation factor from research.md
+    CR: 0.7, // Crossover rate from research.md
+    max_iterations: 1000,
+    max_stagnation: 50, // Convergence threshold from research.md
+    convergence_tolerance: 0.01, // 1% improvement threshold
+    adaptive_parameters: true,
+    time_budget_ms: timeLimit
+  };
+
+  // Track initial best Delta E for improvement rate calculation
+  let initialBestDeltaE = Number.MAX_VALUE;
+  let iterationsCompleted = 0;
+  let convergenceAchieved = false;
+
+  try {
+    // Run differential evolution optimization
+    const optimizer = new DifferentialEvolutionOptimizer(
+      request.targetColor,
+      optimizationPaints,
+      constraints,
+      deConfig
+    );
+
+    const result = optimizer.optimize();
+
+    // Extract results from ColorOptimizationResult
+    const typedResult = result as any; // Type assertion for compatibility with legacy type
+    const bestSolution = typedResult.best_individual;
+    if (!bestSolution) {
+      throw new Error('Optimization failed to produce a solution');
+    }
+
+    iterationsCompleted = typedResult.iterations_completed || 0;
+    const finalBestDeltaE = bestSolution.achieved_delta_e;
+    initialBestDeltaE = typedResult.convergence_metrics?.[0]?.best_fitness || finalBestDeltaE;
+
+    // Calculate convergence based on target achievement
+    convergenceAchieved = finalBestDeltaE <= accuracyTarget;
+
+    // Convert solution to paint ratios
+    const paintRatios: PaintRatio[] = bestSolution.variables
+      .map((ratio: number, index: number) => ({
+        paint_id: optimizationPaints[index].id,
+        paint_name: optimizationPaints[index].name,
+        volume_ml: ratio * (constraints.volume_constraints.min_total_volume_ml || 100),
+        percentage: ratio * 100,
+        paint_properties: request.availablePaints[index]
+      }))
+      .filter((ratio: any) => ratio.percentage > 0.1) // Filter out negligible components
+      .sort((a: any, b: any) => b.percentage - a.percentage) // Sort by percentage descending
+      .slice(0, maxPaintCount); // Limit to maxPaintCount
+
+    // Normalize percentages to sum to 100
+    const totalPercentage = paintRatios.reduce((sum, r) => sum + r.percentage, 0);
+    paintRatios.forEach((r: any) => {
+      r.percentage = (r.percentage / totalPercentage) * 100;
+      r.volume_ml = (r.percentage / 100) * (constraints.volume_constraints.min_total_volume_ml || 100);
+    });
+
+    // Calculate total volume
+    const totalVolume = paintRatios.reduce((sum, r) => sum + r.volume_ml, 0);
+
+    // Determine accuracy rating
+    let accuracyRating: 'excellent' | 'good' | 'acceptable' | 'poor';
+    if (finalBestDeltaE <= 2.0) accuracyRating = 'excellent';
+    else if (finalBestDeltaE <= 4.0) accuracyRating = 'good';
+    else if (finalBestDeltaE <= 6.0) accuracyRating = 'acceptable';
+    else accuracyRating = 'poor';
+
+    // Determine mixing complexity
+    let mixingComplexity: 'simple' | 'moderate' | 'complex';
+    if (paintRatios.length <= 2) mixingComplexity = 'simple';
+    else if (paintRatios.length <= 3) mixingComplexity = 'moderate';
+    else mixingComplexity = 'complex';
+
+    // Calculate weighted average Kubelka-Munk coefficients
+    const totalK = paintRatios.reduce((sum, r: any) =>
+      sum + (r.paint_properties?.kubelkaMunk.k || 0) * (r.percentage / 100), 0);
+    const totalS = paintRatios.reduce((sum, r: any) =>
+      sum + (r.paint_properties?.kubelkaMunk.s || 0) * (r.percentage / 100), 0);
+    const avgOpacity = paintRatios.reduce((sum, r: any) =>
+      sum + (r.paint_properties?.opacity || 0.8) * (r.percentage / 100), 0);
+
+    // Build formula
+    const formula: OptimizedPaintFormula = {
+      paintRatios,
+      totalVolume,
+      predictedColor: bestSolution.mixed_color,
+      deltaE: finalBestDeltaE,
+      accuracyRating,
+      mixingComplexity,
+      kubelkaMunkK: totalK,
+      kubelkaMunkS: totalS,
+      opacity: avgOpacity
+    };
+
+    // Build metrics
+    const timeElapsed = Date.now() - startTime;
+    const earlyTermination = timeElapsed >= timeLimit;
+    const targetMet = finalBestDeltaE <= accuracyTarget;
+    const improvementRate = initialBestDeltaE > 0
+      ? (initialBestDeltaE - finalBestDeltaE) / initialBestDeltaE
+      : 0;
+
+    const metrics: OptimizationPerformanceMetrics = {
+      timeElapsed,
+      iterationsCompleted,
+      algorithmUsed: 'differential_evolution',
+      convergenceAchieved,
+      targetMet,
+      earlyTermination,
+      initialBestDeltaE,
+      finalBestDeltaE,
+      improvementRate
+    };
+
+    return { formula, metrics };
+
+  } catch (error) {
+    // Handle optimization errors gracefully
+    const timeElapsed = Date.now() - startTime;
+
+    throw new Error(
+      `Differential Evolution optimization failed after ${timeElapsed}ms: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
+    );
+  }
+}
