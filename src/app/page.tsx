@@ -316,20 +316,19 @@ const PaintMixr: React.FC = () => {
           {/* Enhanced Mode Toggle */}
           {appMode === 'color_matching' && (
             <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-300">
-              <label className="flex items-center cursor-not-allowed opacity-60">
+              <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={false}
-                  disabled
-                  className="w-4 h-4 text-gray-400 rounded cursor-not-allowed"
+                  checked={enhancedMode}
+                  onChange={(e) => setEnhancedMode(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="ml-2 text-sm font-medium text-gray-600">
+                <span className="ml-2 text-sm font-medium text-gray-700">
                   Enhanced Accuracy Mode
                 </span>
-                <span className="ml-2 text-xs text-gray-500">(Coming Soon)</span>
               </label>
-              <p className="mt-2 text-xs text-gray-500">
-                Advanced optimization algorithms for professional-grade color matching (Target ΔE ≤ 2.0) will be available in a future update.
+              <p className="mt-2 text-xs text-gray-600">
+                Advanced optimization algorithms for professional-grade color matching (Target ΔE ≤ 2.0, supports 2-5 paint formulas, 30s processing time).
               </p>
             </div>
           )}
