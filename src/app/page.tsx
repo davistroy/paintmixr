@@ -89,6 +89,15 @@ const PaintMixr: React.FC = () => {
       })
 
       if (!response.ok) {
+        // If Enhanced mode fails, automatically fallback to Standard mode
+        if (enhancedMode && endpoint === '/api/optimize') {
+          console.warn('Enhanced mode failed, falling back to Standard mode')
+          setError('Enhanced Accuracy Mode temporarily unavailable. Using Standard Mode.')
+          setEnhancedMode(false)
+          // Retry with Standard mode
+          return calculateColorMatch(color)
+        }
+
         const errorData = await response.json().catch(() => ({}))
         const errorMessage = errorData.error?.message || errorData.message || `API error: ${response.status}`
         throw new Error(errorMessage)
@@ -306,25 +315,22 @@ const PaintMixr: React.FC = () => {
 
           {/* Enhanced Mode Toggle */}
           {appMode === 'color_matching' && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <label className="flex items-center cursor-pointer">
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-300">
+              <label className="flex items-center cursor-not-allowed opacity-60">
                 <input
                   type="checkbox"
-                  checked={enhancedMode}
-                  onChange={(e) => setEnhancedMode(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  checked={false}
+                  disabled
+                  className="w-4 h-4 text-gray-400 rounded cursor-not-allowed"
                 />
-                <span className="ml-2 text-sm font-medium text-gray-800">
+                <span className="ml-2 text-sm font-medium text-gray-600">
                   Enhanced Accuracy Mode
                 </span>
-                <span className="ml-2 text-xs text-gray-600">(Target ΔE ≤ 2.0)</span>
+                <span className="ml-2 text-xs text-gray-500">(Coming Soon)</span>
               </label>
-              {enhancedMode && (
-                <p className="mt-2 text-xs text-gray-600">
-                  Uses advanced optimization algorithms for professional-grade color matching.
-                  May take longer to calculate.
-                </p>
-              )}
+              <p className="mt-2 text-xs text-gray-500">
+                Advanced optimization algorithms for professional-grade color matching (Target ΔE ≤ 2.0) will be available in a future update.
+              </p>
             </div>
           )}
         </div>
