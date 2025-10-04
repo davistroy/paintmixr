@@ -294,7 +294,6 @@ export function optimizePaintRatios(
 
   // Weighted ratio optimization based on color distance
   // Paints closer to target color get higher weight
-  const totalDistance = selectedPaints.reduce((sum, p) => sum + p.distance, 0)
 
   // Inverse distance weighting - closer paints get more weight
   const weights = selectedPaints.map(p => {
