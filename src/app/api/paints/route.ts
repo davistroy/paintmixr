@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     const body = await request.json();
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
 // Bulk operations endpoint
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     const body = await request.json();
