@@ -124,9 +124,9 @@ const PaintMixr: React.FC = () => {
 
       const responseData = await response.json()
 
-      // Check for error response structure
-      if ('error' in responseData) {
-        throw new Error(responseData.error.message || 'Color matching failed')
+      // Check for error response structure (error field exists AND is not null)
+      if ('error' in responseData && responseData.error !== null) {
+        throw new Error(responseData.error.message || responseData.error || 'Color matching failed')
       }
 
       // Handle different response formats for enhanced vs standard mode
