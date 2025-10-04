@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/route-handler';
 import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { OptimizationClient } from '@/lib/workers/optimization-client';
@@ -79,14 +80,16 @@ function getOptimizationClient(): OptimizationClient {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
-    const user = await getCurrentUser(supabase);
+    // Use route handler client for authentication
+    const authClient = await createClient();
+    const user = await getCurrentUser(authClient);
 
     const body = await request.json();
     const requestData = OptimizationRequestSchema.parse(body);
 
-    // Get user's available paints
-    const repository = new EnhancedPaintRepository(supabase);
+    // Use admin client for repository operations (different Database type)
+    const adminClient = createAdminClient();
+    const repository = new EnhancedPaintRepository(adminClient);
     const paintFilters = {
       archived: false,
       ...requestData.paint_filters,
@@ -328,8 +331,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
-    const user = await getCurrentUser(supabase);
+    // Use route handler client for authentication
+    const authClient = await createClient();
+    const user = await getCurrentUser(authClient);
 
     const url = new URL(request.url);
     const optimizationId = url.searchParams.get('id');
@@ -342,7 +346,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Return optimization capabilities and user statistics
-    const repository = new EnhancedPaintRepository(supabase);
+    const adminClient = createAdminClient();
+    const repository = new EnhancedPaintRepository(adminClient);
     const paintsResult = await repository.getUserPaints(user.id, { archived: false }, { page: 1, limit: 1 });
 
     const userStats = await repository.getUserStats(user.id);

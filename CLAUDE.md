@@ -287,3 +287,99 @@ export const emailSigninSchema = z.object({
 3. **Async searchParams**: Next.js 15 requires `await searchParams` in page components
 4. **Type imports**: Import from `@/lib/types`, never local type files
 5. **Supabase clients**: Use modern `@supabase/ssr` patterns, never legacy helpers
+
+## Bug Fixes from E2E Testing (Feature 006) - IN PROGRESS 2025-10-03
+
+### Supabase Client Pattern in API Routes (CRITICAL)
+- **NEVER use Admin client in user-facing API routes**
+  - Admin client (`createAdminClient()`) uses service role key, cannot access session cookies
+  - Route handler client (`createClient()` from route-handler.ts) accesses user session
+- **Pattern for API routes**:
+  ```typescript
+  // WRONG - causes 401 for authenticated users
+  const supabase = createAdminClient()
+
+  // CORRECT - accesses user session from cookies
+  import { createClient } from '@/lib/supabase/route-handler'
+  const supabase = await createClient()  // Note: async
+  ```
+- **When to use each client**:
+  - Route handler client: User-scoped API operations (`/api/optimize`, `/api/sessions`, etc.)
+  - Admin client: Admin operations (update user metadata, bypass RLS)
+  - Browser client: Client components
+  - Server client: Server components
+
+### Toast Notification System (UX Enhancement)
+- **Library**: shadcn/ui Toast component (Radix UI primitive)
+- **Installation**: `npx shadcn@latest add toast`
+- **Components**:
+  - `/src/components/ui/toast.tsx` - Toast primitive
+  - `/src/components/ui/toaster.tsx` - Toast container (add to root layout)
+  - `/src/hooks/use-toast.ts` - Toast hook
+- **Usage pattern**:
+  ```typescript
+  import { useToast } from '@/hooks/use-toast'
+  const { toast } = useToast()
+
+  toast({
+    title: "Session saved successfully",
+    variant: "success",  // success | destructive | default
+    duration: 3000,      // Auto-dismiss time in ms
+  })
+  ```
+- **Accessibility**:
+  - Success/default: ARIA `role="status"` (polite)
+  - Destructive: ARIA `role="alert"` (assertive)
+  - All toasts dismissible via ESC key
+  - Color contrast ≥ 4.5:1 (WCAG 2.1 AA)
+
+### Error Message Translation
+- **Centralized utility**: `/src/lib/errors/user-messages.ts`
+- **Pattern**: Translate HTTP status codes to user-friendly messages
+  ```typescript
+  const userMessage = translateApiError({
+    status: error.response?.status,
+    code: error.code,
+  })
+  // 401 → "Session expired. Please sign in again."
+  // 500 → "Unable to complete request. Please try again."
+  // NETWORK_ERROR → "Connection issue. Please check your internet connection."
+  ```
+- **NEVER show technical error codes to users** (401, 500, etc.)
+- **Always log technical details to console** (for debugging)
+
+### Retry Logic for Auth Failures
+- **Single automatic retry with 500ms delay for 401 errors**
+- **Pattern**:
+  ```typescript
+  try {
+    const response = await fetch('/api/optimize', ...)
+    if (response.status === 401 && retryCount === 0) {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return fetchWithAuthRetry(fetcher, retryCount + 1)
+    }
+    if (response.status === 401 && retryCount > 0) {
+      window.location.href = '/auth/signin?reason=session_expired'
+    }
+  }
+  ```
+- **Rationale**: Handles transient auth token refresh, prevents infinite loops
+
+### Session Expiration Handling
+- **Query param pattern**: `/auth/signin?reason=session_expired`
+- **Display toast on signin page based on reason param**
+- **Extensible for other reasons** (account_locked, password_reset_required, etc.)
+
+### Component Interface Enhancements (Backward Compatible)
+- **SaveForm**: Added optional `onSuccess?: () => void` callback
+  - Called after successful save and toast display
+  - Parent uses to close dialog and refresh data
+- **SessionCard**: Added optional `onDetailClick?: (sessionId: string) => void`
+  - If undefined, shows toast: "Session details view coming soon"
+  - If defined, parent handles navigation (for future implementation)
+
+### Common Pitfalls (Bug Fixes)
+1. **Admin client in API routes**: Always use route handler client for user operations
+2. **Missing toast feedback**: Add success/error toasts for all async user actions
+3. **Technical error messages**: Always translate to user-friendly messages
+4. **Missing graceful degradation**: Unimplemented features should show "coming soon", not timeout
