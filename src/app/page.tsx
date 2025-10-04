@@ -54,23 +54,42 @@ const PaintMixr: React.FC = () => {
       // Choose API endpoint based on mode
       const endpoint = enhancedMode ? '/api/optimize' : '/api/color-match'
 
+      // Get all user paint IDs (for enhanced mode, we need to fetch from database)
+      // For now, we'll fetch user's paints from the API
+      let paintIds: string[] = []
+
+      if (enhancedMode) {
+        // Fetch user's paint collection from Supabase
+        const paintsResponse = await fetch('/api/paints')
+        if (paintsResponse.ok) {
+          const paintsData = await paintsResponse.json()
+          paintIds = paintsData.paints?.map((p: any) => p.id) || []
+        }
+
+        // If no paints found, show error
+        if (paintIds.length === 0) {
+          throw new Error('No paints found in your collection. Please add paints first.')
+        }
+      }
+
       // Prepare request body based on endpoint
       const requestBody = enhancedMode
         ? {
-            // Enhanced mode expects LAB color with uppercase keys
-            target_color: {
-              L: color.lab.l,
+            // Enhanced mode expects camelCase with lowercase LAB keys
+            targetColor: {
+              l: color.lab.l,
               a: color.lab.a,
               b: color.lab.b,
             },
-            optimization_config: {
-              algorithm: 'tpe_hybrid',
-              target_delta_e: 2.0,
-            },
-            volume_constraints: {
+            availablePaints: paintIds, // Array of paint ID strings
+            mode: 'enhanced' as const,
+            maxPaintCount: 5,
+            timeLimit: 28000,
+            accuracyTarget: 2.0,
+            volumeConstraints: {
               min_total_volume_ml: 200,
               max_total_volume_ml: 200,
-              max_paint_count: 8,
+              allow_scaling: false,
             },
           }
         : {
@@ -113,33 +132,43 @@ const PaintMixr: React.FC = () => {
       // Handle different response formats for enhanced vs standard mode
       if (enhancedMode) {
         // Enhanced mode response format from /api/optimize
-        const data = responseData.data
-
-        // Convert achieved color from LAB format to ColorValue format
-        const achievedLab = {
-          l: data.achieved_color.L,
-          a: data.achieved_color.a,
-          b: data.achieved_color.b,
-        }
-        const achievedColor: ColorValue = {
-          hex: labToHex(achievedLab),
-          lab: achievedLab,
+        // Response structure: { success, formula, metrics, warnings, error }
+        if (!responseData.success || !responseData.formula) {
+          throw new Error(responseData.error || 'Optimization failed')
         }
 
-        // Build formula from paint_details
+        const formulaData = responseData.formula
+
+        // Convert predicted color from LAB format to ColorValue format
+        const predictedLab = {
+          l: formulaData.predictedColor.l,
+          a: formulaData.predictedColor.a,
+          b: formulaData.predictedColor.b,
+        }
+        const predictedColor: ColorValue = {
+          hex: labToHex(predictedLab),
+          lab: predictedLab,
+        }
+
+        // Build formula from paintRatios
         const formula: MixingFormula = {
-          total_volume_ml: data.solution?.total_volume || 200,
-          paint_ratios: data.paint_details.map((paint: any) => ({
-            paint_id: paint.id,
-            paint_name: paint.name,
-            volume_ml: paint.volume_ml,
-            percentage: paint.percentage,
+          total_volume_ml: formulaData.totalVolume,
+          paint_ratios: formulaData.paintRatios.map((ratio: any) => ({
+            paint_id: ratio.paint_id,
+            paint_name: ratio.paint_name || '',
+            volume_ml: ratio.volume_ml,
+            percentage: ratio.percentage,
           })),
         }
 
         setFormula(formula)
-        setCalculatedColor(achievedColor)
-        setDeltaE(data.delta_e_achieved)
+        setCalculatedColor(predictedColor)
+        setDeltaE(formulaData.deltaE)
+
+        // Show warnings if any
+        if (responseData.warnings && responseData.warnings.length > 0) {
+          console.warn('Optimization warnings:', responseData.warnings)
+        }
       } else {
         // Standard mode response format
         setFormula(responseData.formula)
