@@ -1,3 +1,44 @@
+/**
+ * @deprecated This Web Worker is deprecated in favor of server-side optimization.
+ *
+ * **Migration Path:**
+ * - Use `/api/optimize` endpoint for all color optimizations
+ * - Enhanced Mode now uses server-side Differential Evolution and TPE Hybrid algorithms
+ * - This file will be removed in a future release
+ *
+ * **Why Deprecated:**
+ * - Web Workers don't work in Vercel serverless environment
+ * - Server-side optimization provides better performance and accuracy
+ * - Enhanced Mode requires server-side execution for 30-second timeout
+ * - Vercel serverless functions support `maxDuration=30` configuration
+ *
+ * **Replacement API:**
+ * ```typescript
+ * // OLD (Web Worker - DEPRECATED):
+ * const worker = new Worker('/color-optimization.worker.ts');
+ * worker.postMessage({ type: 'OPTIMIZE', data: request });
+ *
+ * // NEW (Server-side API):
+ * const response = await fetch('/api/optimize', {
+ *   method: 'POST',
+ *   body: JSON.stringify({
+ *     targetColor: { l: 65, a: 18, b: -5 },
+ *     availablePaints: paints,
+ *     mode: 'enhanced',
+ *     maxPaintCount: 5,
+ *     timeLimit: 28000,
+ *     accuracyTarget: 2.0
+ *   })
+ * });
+ * const result = await response.json();
+ * ```
+ *
+ * See: specs/007-enhanced-mode-1/plan.md for full migration details
+ *
+ * **Date Deprecated:** 2025-10-04
+ * **Target Removal:** Next major version (v2.0.0)
+ */
+
 import { DifferentialEvolutionOptimizer } from '@/lib/mixing-optimization/differential-evolution';
 import { TPEHybridOptimizer } from '@/lib/mixing-optimization/tpe-hybrid';
 import { ConstraintValidator, VolumeConstraints, PaintAvailabilityConstraint } from '@/lib/mixing-optimization/constraints';
@@ -79,6 +120,20 @@ class ColorOptimizationWorker {
   private shouldStop: boolean = false;
 
   constructor() {
+    // Deprecation warning (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '%c⚠️ DEPRECATION WARNING: Web Worker Optimization is Deprecated',
+        'color: orange; font-weight: bold; font-size: 14px;'
+      );
+      console.warn(
+        'This Web Worker-based optimization is deprecated and will be removed in v2.0.0.\n' +
+        'Please migrate to server-side optimization via /api/optimize endpoint.\n\n' +
+        'Migration guide: specs/007-enhanced-mode-1/plan.md\n' +
+        'Reason: Enhanced Mode requires server-side execution for 30-second timeout support.'
+      );
+    }
+
     this.setupMessageHandlers();
   }
 

@@ -288,6 +288,40 @@ export const emailSigninSchema = z.object({
 4. **Type imports**: Import from `@/lib/types`, never local type files
 5. **Supabase clients**: Use modern `@supabase/ssr` patterns, never legacy helpers
 
+## Enhanced Accuracy Mode (Feature 007-enhanced-mode-1) - COMPLETED 2025-10-04
+
+### Server-Side Optimization Architecture
+- **Replaced Web Workers**: Migrated from client-side Web Workers to Vercel serverless functions
+  - Reason: Web Workers incompatible with Vercel serverless environment
+  - Benefit: 30-second timeout support via `maxDuration=30` configuration
+- **Algorithm Auto-Selection** (from research.md):
+  - ≤8 paints: Differential Evolution (speed-prioritized, faster convergence)
+  - >8 paints: TPE Hybrid (accuracy-prioritized, Bayesian optimization)
+- **Delta E Target**: ≤2.0 for Enhanced Mode (vs ≤5.0 for Standard Mode)
+- **Paint Count**: Supports 2-5 paint formulas (expanded from 3-paint limit)
+
+### API Endpoint Pattern
+- **POST /api/optimize**: Unified endpoint for both Standard and Enhanced modes
+- **Zod Validation**: Runtime schema validation for all requests via `src/lib/mixing-optimization/validation.ts`
+- **Vercel Configuration**: `export const maxDuration = 30` in route handler
+- **RLS Enforcement**: All queries use `.eq('user_id', user.id)` for user isolation
+
+### Optimization Modules
+- **differential-evolution.ts**: Population-based DE algorithm (Storn & Price)
+  - Population size: 10 × number of paints
+  - Adaptive parameters: F=0.8, CR=0.7 (adjust based on success rate)
+- **tpe-hybrid.ts**: Bayesian optimization with local refinement
+  - γ = 0.25 quantile split, 20 initial random samples
+- **enhanced-optimizer.ts**: Auto-selects algorithm, enforces 28s timeout
+- **validation.ts**: Zod schemas (LAB colors, K-M coefficients, volume constraints)
+
+### Common Pitfalls
+1. **Don't use Web Worker API**: All optimization now server-side via `/api/optimize`
+2. **Respect maxDuration=30**: Internal timeout at 28s for 2s safety buffer
+3. **Validate paint count**: 2-100 paints (API validates, but check client-side too)
+4. **Mode-aware parameters**: Enhanced uses maxPaintCount=5, Standard uses 3
+5. **Always use route handler client**: Never use Admin client in `/api/optimize`
+
 ## Bug Fixes from E2E Testing (Feature 006) - IN PROGRESS 2025-10-03
 
 ### Supabase Client Pattern in API Routes (CRITICAL)

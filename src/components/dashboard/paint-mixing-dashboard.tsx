@@ -9,10 +9,11 @@ type PaintEntry = any;
 type OptimizationResult = any;
 import ColorPicker from '@/components/ui/color-picker';
 import OptimizationControls from '@/components/optimization/optimization-controls';
-import OptimizationResults from '@/components/optimization/optimization-results';
+import EnhancedModeResults from '@/components/optimization/EnhancedModeResults';
 import PaintLibrary from '@/components/paint/paint-library';
 import CollectionManager from '@/components/collection/collection-manager';
 import { apiGet, apiPost } from '@/lib/api/client';
+import { EnhancedOptimizationResponse } from '@/lib/types';
 
 interface DashboardState {
   targetColor: LABColor;
@@ -23,6 +24,9 @@ interface DashboardState {
   optimizationHistory: OptimizationResult[];
   activeTab: 'optimize' | 'library' | 'collections' | 'history';
   recentMixes: any[];
+  mode: 'standard' | 'enhanced';
+  showProgress: boolean;
+  progressMessage: string;
 }
 
 interface OptimizationConfig {
@@ -52,7 +56,10 @@ export default function PaintMixingDashboard() {
     isOptimizing: false,
     optimizationHistory: [],
     activeTab: 'optimize',
-    recentMixes: []
+    recentMixes: [],
+    mode: 'standard',
+    showProgress: false,
+    progressMessage: ''
   });
 
   const [optimizationConfig, setOptimizationConfig] = useState<OptimizationConfig>({
@@ -78,6 +85,38 @@ export default function PaintMixingDashboard() {
     loadRecentMixes();
     loadOptimizationHistory();
   }, []);
+
+  // T018: Progress indicator with 5s/15s timers
+  useEffect(() => {
+    if (!state.isOptimizing) {
+      setState(prev => ({ ...prev, showProgress: false, progressMessage: '' }));
+      return;
+    }
+
+    // Show progress indicator after 5 seconds
+    const timer1 = setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        showProgress: true,
+        progressMessage: state.mode === 'enhanced'
+          ? 'Optimizing formula... This may take up to 30 seconds in Enhanced Mode'
+          : 'Optimizing formula...'
+      }));
+    }, 5000);
+
+    // Update message at 15 seconds
+    const timer2 = setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        progressMessage: 'Still optimizing... Finding best paint combination'
+      }));
+    }, 15000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [state.isOptimizing, state.mode]);
 
   const loadDefaultCollection = async () => {
     try {
@@ -121,7 +160,28 @@ export default function PaintMixingDashboard() {
     }
   };
 
-  // Handle color optimization
+  // Save mixing result helper (defined first to avoid circular dependency)
+  const saveMixingResult = useCallback(async (result: OptimizationResult) => {
+    try {
+      await apiPost('/api/mixing-history', {
+        target_color: state.targetColor,
+        result_colors: [result.achieved_color],
+        paint_mixture: result.solution?.paint_volumes || result.formula?.paintRatios,
+        delta_e_achieved: result.quality_metrics?.delta_e || result.formula?.deltaE,
+        optimization_time_ms: result.performance_metrics?.total_time_ms || result.metrics?.timeElapsed,
+        total_volume_ml: result.solution?.total_volume_ml || result.formula?.totalVolume,
+        total_cost: result.solution?.total_cost || 0,
+        collection_id: state.selectedCollection?.id,
+        optimization_config: optimizationConfig,
+        volume_constraints: volumeConstraints,
+        notes: `Auto-generated mix (${state.mode} mode)`
+      });
+    } catch (error) {
+      console.error('Failed to save mixing result:', error);
+    }
+  }, [state.targetColor, state.selectedCollection, state.mode, optimizationConfig, volumeConstraints]);
+
+  // T019: Handle color optimization with Enhanced Mode support
   const handleOptimize = useCallback(async () => {
     if (state.selectedPaints.length === 0) {
       alert('Please select at least one paint for optimization.');
@@ -131,26 +191,23 @@ export default function PaintMixingDashboard() {
     setState(prev => ({ ...prev, isOptimizing: true, optimizationResult: null }));
 
     try {
+      // Build Enhanced Mode API request (T019)
       const optimizationRequest = {
-        target_color: state.targetColor,
-        available_paints: state.selectedPaints.map(paint => ({
-          id: paint.id,
-          name: paint.name,
-          brand: paint.brand,
-          lab_l: paint.lab_l,
-          lab_a: paint.lab_a,
-          lab_b: paint.lab_b,
-          volume_ml: paint.volume_ml,
-          cost_per_ml: paint.cost_per_ml,
-          finish_type: paint.finish_type,
-          pigment_info: paint.pigment_info
-        })),
-        volume_constraints: volumeConstraints,
-        optimization_config: optimizationConfig,
-        collection_id: state.selectedCollection?.id
+        targetColor: state.targetColor, // LABColor format
+        availablePaints: state.selectedPaints.map(paint => paint.id), // Paint IDs only
+        mode: state.mode, // 'standard' | 'enhanced'
+        maxPaintCount: state.mode === 'enhanced' ? 5 : 3,
+        timeLimit: state.mode === 'enhanced' ? 28000 : 10000,
+        accuracyTarget: state.mode === 'enhanced' ? 2.0 : 5.0,
+        volumeConstraints: {
+          min_total_volume_ml: volumeConstraints.total_volume_ml * 0.9,
+          max_total_volume_ml: volumeConstraints.total_volume_ml * 1.1,
+          minimum_component_volume_ml: volumeConstraints.min_volume_per_paint_ml,
+          allow_scaling: !volumeConstraints.allow_waste
+        }
       };
 
-      const response = await apiPost<OptimizationResult>(
+      const response = await apiPost<any>(
         '/api/optimize',
         optimizationRequest
       );
@@ -160,6 +217,11 @@ export default function PaintMixingDashboard() {
       }
 
       const result = response.data!;
+
+      // Check for warnings from Enhanced Mode
+      if (result.warnings && result.warnings.length > 0) {
+        console.warn('Optimization warnings:', result.warnings);
+      }
 
       setState(prev => ({
         ...prev,
@@ -176,27 +238,7 @@ export default function PaintMixingDashboard() {
     } finally {
       setState(prev => ({ ...prev, isOptimizing: false }));
     }
-  }, [state.targetColor, state.selectedPaints, state.selectedCollection, optimizationConfig, volumeConstraints]);
-
-  const saveMixingResult = async (result: OptimizationResult) => {
-    try {
-      await apiPost('/api/mixing-history', {
-        target_color: state.targetColor,
-        result_colors: [result.achieved_color],
-        paint_mixture: result.solution.paint_volumes,
-        delta_e_achieved: result.quality_metrics.delta_e,
-        optimization_time_ms: result.performance_metrics.total_time_ms,
-        total_volume_ml: result.solution.total_volume_ml,
-        total_cost: result.solution.total_cost,
-        collection_id: state.selectedCollection?.id,
-        optimization_config: optimizationConfig,
-        volume_constraints: volumeConstraints,
-        notes: `Auto-generated mix (${optimizationConfig.algorithm})`
-      });
-    } catch (error) {
-      console.error('Failed to save mixing result:', error);
-    }
-  };
+  }, [state.targetColor, state.selectedPaints, state.selectedCollection, state.mode, optimizationConfig, volumeConstraints, saveMixingResult]);
 
   // Handle paint selection from library
   const handlePaintSelection = (paints: PaintEntry[]) => {
@@ -224,9 +266,46 @@ export default function PaintMixingDashboard() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-bold text-gray-900">PaintMixr</h1>
-              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                Enhanced Accuracy
-              </span>
+
+              {/* T017: Enhanced Mode Toggle */}
+              <div className="flex items-center space-x-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
+                <label
+                  htmlFor="enhanced-mode-toggle"
+                  className="text-sm font-medium text-gray-700 cursor-pointer"
+                >
+                  {state.mode === 'enhanced' ? 'Enhanced Mode' : 'Standard Mode'}
+                </label>
+                <button
+                  id="enhanced-mode-toggle"
+                  role="switch"
+                  aria-checked={state.mode === 'enhanced'}
+                  aria-label="Toggle Enhanced Accuracy Mode"
+                  onClick={() => setState(prev => ({
+                    ...prev,
+                    mode: prev.mode === 'enhanced' ? 'standard' : 'enhanced'
+                  }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    state.mode === 'enhanced' ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      state.mode === 'enhanced' ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <button
+                  aria-label="Enhanced Mode Information"
+                  title={state.mode === 'enhanced'
+                    ? 'Enhanced Mode: Delta E ≤ 2.0, 2-5 paint formulas, 30s processing'
+                    : 'Standard Mode: Delta E ≤ 5.0, 2-3 paint formulas, faster processing'}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center space-x-4">
@@ -238,8 +317,11 @@ export default function PaintMixingDashboard() {
 
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Target: ΔE ≤ {optimizationConfig.target_delta_e}</span>
+                  <div className={`w-2 h-2 rounded-full ${state.mode === 'enhanced' ? 'bg-blue-500' : 'bg-green-500'}`}></div>
+                  <span>Target: ΔE ≤ {state.mode === 'enhanced' ? '2.0' : '5.0'}</span>
+                  <span className="text-xs text-gray-400">
+                    ({state.mode === 'enhanced' ? '2-5 paints' : '2-3 paints'})
+                  </span>
                 </div>
               </div>
             </div>
@@ -327,9 +409,14 @@ export default function PaintMixingDashboard() {
                 }`}
               >
                 {state.isOptimizing ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Optimizing...</span>
+                  <div className="flex flex-col items-center justify-center space-y-2" role="status" aria-live="polite">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Optimizing...</span>
+                    </div>
+                    {state.showProgress && (
+                      <span className="text-xs text-blue-100">{state.progressMessage}</span>
+                    )}
                   </div>
                 ) : (
                   `Optimize Color Mix (${state.selectedPaints.length} paints)`
@@ -382,20 +469,23 @@ export default function PaintMixingDashboard() {
             {/* Right Column: Results */}
             <div>
               {state.optimizationResult ? (
-                React.createElement(OptimizationResults as any, {
-                  result: state.optimizationResult,
-                  targetColor: state.targetColor,
-                  onSaveMix: () => {/* Already saved */},
-                  onNewOptimization: () => setState(prev => ({ ...prev, optimizationResult: null })),
-                  className: "h-full"
-                })
+                <EnhancedModeResults
+                  response={state.optimizationResult as EnhancedOptimizationResponse}
+                  targetColor={state.targetColor}
+                  onSaveToHistory={() => {/* Already saved */}}
+                  onNewOptimization={() => setState(prev => ({ ...prev, optimizationResult: null }))}
+                  className="h-full"
+                />
               ) : (
                 <div className="bg-white rounded-lg shadow p-8 text-center h-96 flex items-center justify-center">
                   <div className="text-gray-500">
                     <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 3v18M21 11h-6M21 7h-6M21 15h-6" />
                     </svg>
-                    <p>Select paints and click optimize to see results</p>
+                    <p className="text-sm">Select paints and click optimize to see results</p>
+                    <p className="text-xs mt-2 text-gray-400">
+                      {state.mode === 'enhanced' ? 'Enhanced Mode: 2-5 paints, ΔE ≤ 2.0' : 'Standard Mode: 2-3 paints, ΔE ≤ 5.0'}
+                    </p>
                   </div>
                 </div>
               )}
