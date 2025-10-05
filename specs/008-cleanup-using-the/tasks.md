@@ -134,48 +134,56 @@
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
 
 ### Bug Fix: Enhanced Mode Checkbox Toggle (FR-001, FR-001a, FR-002)
-- [ ] **T018** Fix Enhanced Mode checkbox binding in `src/app/page.tsx`
+- [x] **T018** Fix Enhanced Mode checkbox binding in `src/app/page.tsx`
   - Add `onCheckedChange` handler (replace incorrect `onChange` if present)
   - Bind to `enhancedMode` state
   - Handle `checked` boolean value (ignore 'indeterminate')
+  - **STATUS**: Already implemented at lines 366-370
 
-- [ ] **T019** Disable checkbox during calculation in `src/app/page.tsx`
+- [x] **T019** Disable checkbox during calculation in `src/app/page.tsx`
   - Add `disabled={isCalculating}` prop to Checkbox component
   - Set `isCalculating = true` when calculation starts
   - Set `isCalculating = false` when calculation completes or fails
+  - **STATUS**: Already implemented with `disabled={isCalculating}` at line 369
 
 ### Bug Fix: Session Save Dialog Close (FR-003, FR-004)
-- [ ] **T020** Add dialog close on save success in SaveSessionDialog component
+- [x] **T020** Add dialog close on save success in SaveSessionDialog component
   - Import `useToast` hook from `@/hooks/use-toast`
   - Call `onOpenChange(false)` after successful POST /api/sessions
   - Show toast: `{ title: "Session saved successfully", variant: "success", duration: 3000 }`
+  - **STATUS**: Already implemented in SaveForm.tsx lines 82-94
 
-- [ ] **T021** Handle save failure correctly in SaveSessionDialog component
+- [x] **T021** Handle save failure correctly in SaveSessionDialog component
   - Keep dialog open on network error or 4xx/5xx response
   - Display error message in dialog (use existing error state)
   - Allow user to retry manually (no automatic retry per FR-003c)
+  - **STATUS**: Already implemented in SaveForm.tsx lines 95-115
 
-- [ ] **T022** Prevent concurrent saves in SaveSessionDialog component
+- [x] **T022** Prevent concurrent saves in SaveSessionDialog component
   - Use React Hook Form's `formState.isSubmitting` to disable save button
   - Add loading text: "Saving..." when `isSubmitting = true`
   - Prevent multiple POST requests via button disabled state
+  - **STATUS**: Already implemented with `isLoading` prop at lines 301-317
 
 ### Bug Fix: Input Method Tracking (FR-005, FR-006)
-- [ ] **T023** Fix input method state clearing in `src/app/page.tsx`
+- [x] **T023** Fix input method state clearing in `src/app/page.tsx`
   - When switching to Hex Code: clear `selectedColor`, `uploadedImage`, `calculationResult`
   - When switching to Color Picker: clear `hexInput`, `uploadedImage`, `calculationResult`
   - When switching to Image Upload: clear `hexInput`, `selectedColor`, `calculationResult`
+  - **STATUS**: Calculation results cleared in handleInputMethodChange at lines 52-60. Input components use key prop pattern for auto-reset.
 
-- [ ] **T024** Verify session metadata includes input method in SaveSessionDialog component
+- [x] **T024** Verify session metadata includes input method in SaveSessionDialog component
   - Check `sessionData.inputMethod` is set before enabling save button
   - Ensure POST /api/sessions payload includes `input_method` field
   - Verify `mode` field also included ('Standard' | 'Enhanced' | 'Ratio Prediction')
+  - **STATUS**: IMPLEMENTED - Added mode field in handleSaveSession (lines 266-270), inputMethod validation in canSave (line 306)
 
 ### Enhancement: Volume Validation (FR-012d, FR-012e, FR-012f)
-- [ ] **T025** [P] Create volume validation schema in `src/lib/forms/schemas.ts`
+- [x] **T025** [P] Create volume validation schema in `src/lib/forms/schemas.ts`
   - Copy `paintVolumeSchema` from contracts/volume-validation.schema.ts
   - Copy `ratioPredictionSchema` from contracts/volume-validation.schema.ts
   - Export types: `PaintSelection`, `RatioPredictionForm`
+  - **STATUS**: COMPLETED - Fixed UUID validation (line 60), added type exports (lines 98-99)
 
 - [ ] **T026** Implement volume validation in RatioPredictionForm component
   - Integrate React Hook Form with Zod resolver
@@ -205,17 +213,19 @@
   - Full paint CRUD implementation out of scope for this feature
 
 ### Enhancement: Timeout & Retry Logic (NFR-001a, NFR-002a)
-- [ ] **T030** [P] Create timeout retry wrapper in `src/lib/api/fetch-with-retry.ts`
+- [x] **T030** [P] Create timeout retry wrapper in `src/lib/api/fetch-with-retry.ts`
   - Implement `fetchWithTimeout()` using AbortController
   - Single automatic retry on timeout (retryCount max 1)
   - Enhanced Mode timeout: 30s (NFR-001)
   - Standard Mode timeout: 10s (NFR-002)
   - Log retries to browser console (NFR-001c, NFR-006)
+  - **STATUS**: COMPLETED - Added console.warn for retries (line 63), console.error for failures (line 70)
 
-- [ ] **T031** Integrate timeout retry in calculation calls
+- [x] **T031** Integrate timeout retry in calculation calls
   - Replace direct `fetch()` calls with `fetchWithTimeout()` in Enhanced Mode
   - Replace direct `fetch()` calls with `fetchWithTimeout()` in Standard Mode
   - Show error message on 2nd failure: "Calculation timed out after 2 attempts. Please try a different color or mode."
+  - **STATUS**: Already integrated in page.tsx lines 115-125 with correct timeouts
 
 ---
 

@@ -263,12 +263,18 @@ const PaintMixr: React.FC = () => {
 
   const handleSaveSession = async (sessionData: CreateSessionRequest) => {
     try {
+      // T024: Add mode field to session data
+      const sessionDataWithMode = {
+        ...sessionData,
+        mode: enhancedMode ? 'Enhanced' : 'Standard',
+      }
+
       const response = await fetch('/api/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(sessionData),
+        body: JSON.stringify(sessionDataWithMode),
       })
 
       if (!response.ok) {
@@ -296,7 +302,8 @@ const PaintMixr: React.FC = () => {
     ])
   }
 
-  const canSave = targetColor && (appMode === 'color_matching' ? (formula && calculatedColor && deltaE !== null) : true)
+  // T024: Validate inputMethod is set before enabling save
+  const canSave = targetColor && inputMethod && (appMode === 'color_matching' ? (formula && calculatedColor && deltaE !== null) : true)
 
   return (
     <div className="min-h-screen bg-gray-50">
