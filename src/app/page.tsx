@@ -9,8 +9,11 @@ import ColorPicker from '@/components/color-input/ColorPicker'
 import ImageUpload from '@/components/color-input/ImageUpload'
 import RatioDisplay from '@/components/mixing-calculator/RatioDisplay'
 import AccuracyIndicator from '@/components/mixing-calculator/AccuracyIndicator'
+import DeltaEWarning from '@/components/mixing-calculator/DeltaEWarning'
 import SaveForm from '@/components/session-manager/SaveForm'
 import ColorValueComponent from '@/components/color-display/ColorValue'
+import { Checkbox } from '@/components/ui/checkbox'
+import { fetchWithRetry } from '@/lib/api/fetch-with-retry'
 
 type InputMethod = 'color_picker' | 'hex_input' | 'image_upload'
 type AppMode = 'color_matching' | 'ratio_prediction'
@@ -44,6 +47,16 @@ const PaintMixr: React.FC = () => {
     if (appMode === 'color_matching') {
       calculateColorMatch(color)
     }
+  }
+
+  // FR-005a, FR-005b: Clear state when switching input methods
+  const handleInputMethodChange = (method: InputMethod) => {
+    setInputMethod(method)
+    // Clear calculation results (FR-005b)
+    setCalculatedColor(null)
+    setFormula(null)
+    setDeltaE(null)
+    setError('')
   }
 
   const calculateColorMatch = async (color: ColorValue) => {
@@ -99,12 +112,16 @@ const PaintMixr: React.FC = () => {
             optimization_preference: 'accuracy',
           }
 
-      const response = await fetch(endpoint, {
+      const response = await fetchWithRetry(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
+      }, {
+        timeout: enhancedMode ? 30000 : 10000,
+        maxRetries: 1,
+        retryDelay: 500
       })
 
       if (!response.ok) {
@@ -346,18 +363,19 @@ const PaintMixr: React.FC = () => {
           {appMode === 'color_matching' && (
             <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-300">
               <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={enhancedMode}
-                  onChange={(e) => setEnhancedMode(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  onCheckedChange={(checked) => setEnhancedMode(checked === true)}
+                  disabled={isCalculating}
                 />
                 <span className="ml-2 text-sm font-medium text-gray-700">
                   Enhanced Accuracy Mode
                 </span>
               </label>
               <p className="mt-2 text-xs text-gray-600">
-                Advanced optimization algorithms for professional-grade color matching (Target ΔE ≤ 2.0, supports 2-5 paint formulas, 30s processing time).
+                {enhancedMode
+                  ? 'Advanced optimization algorithms for professional-grade color matching (Target ΔE ≤ 2.0, supports 2-5 paint formulas, 30s processing time).'
+                  : 'Standard color matching (Target ΔE ≤ 5.0, maximum 3 paints, <10s processing time).'}
               </p>
             </div>
           )}
@@ -369,7 +387,7 @@ const PaintMixr: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Select Color Input Method</h2>
             <div className="flex flex-wrap gap-3 mb-6">
               <button
-                onClick={() => setInputMethod('color_picker')}
+                onClick={() => handleInputMethodChange('color_picker')}
                 className={`px-4 py-2 rounded-lg border transition-colors ${
                   inputMethod === 'color_picker'
                     ? 'border-blue-500 bg-blue-50 text-blue-800'
@@ -379,7 +397,7 @@ const PaintMixr: React.FC = () => {
                 Color Picker
               </button>
               <button
-                onClick={() => setInputMethod('hex_input')}
+                onClick={() => handleInputMethodChange('hex_input')}
                 className={`px-4 py-2 rounded-lg border transition-colors ${
                   inputMethod === 'hex_input'
                     ? 'border-blue-500 bg-blue-50 text-blue-800'
@@ -389,7 +407,7 @@ const PaintMixr: React.FC = () => {
                 Hex Code
               </button>
               <button
-                onClick={() => setInputMethod('image_upload')}
+                onClick={() => handleInputMethodChange('image_upload')}
                 className={`px-4 py-2 rounded-lg border transition-colors ${
                   inputMethod === 'image_upload'
                     ? 'border-blue-500 bg-blue-50 text-blue-800'
@@ -569,6 +587,12 @@ const PaintMixr: React.FC = () => {
               achievedColor={calculatedColor}
               deltaE={deltaE}
               showColors={true}
+            />
+
+            {/* Delta E Warning */}
+            <DeltaEWarning
+              deltaE={deltaE}
+              mode={enhancedMode ? 'Enhanced' : 'Standard'}
             />
 
             {/* Formula Display */}

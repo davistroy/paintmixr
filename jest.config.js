@@ -13,11 +13,7 @@ const customJestConfig = {
     '<rootDir>/cypress/',
     // Exclude TDD placeholder and broken tests from CI
     '<rootDir>/tests/',
-    '<rootDir>/__tests__/accessibility/',
     '<rootDir>/__tests__/contract/',
-    '<rootDir>/__tests__/integration/',
-    '<rootDir>/__tests__/lib/',
-    '<rootDir>/__tests__/performance/',
     '<rootDir>/__tests__/unit/rate-limit.test.ts',
     '<rootDir>/__tests__/unit/validation.test.ts',
     '<rootDir>/__tests__/unit/metadata-helpers.test.ts',

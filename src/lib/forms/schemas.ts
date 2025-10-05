@@ -42,3 +42,53 @@ export const volumeConstraintsSchema = z.object({
   data => parseFloat(data.minVolume) < parseFloat(data.maxVolume),
   { message: 'Min volume must be less than max volume', path: ['minVolume'] }
 )
+
+/**
+ * Paint volume validation (5-1000ml)
+ * FR-012d: Minimum 5ml
+ * FR-012e: Maximum 1000ml
+ */
+export const paintVolumeSchema = z.number()
+  .min(5, "Paint volume must be between 5ml and 1000ml")
+  .max(1000, "Paint volume must be between 5ml and 1000ml")
+
+/**
+ * Paint selection with volume validation
+ */
+export const paintSelectionSchema = z.object({
+  paintId: z.string().min(1, "Paint selection is required"),
+  volume: paintVolumeSchema
+})
+
+/**
+ * Ratio Prediction form validation
+ * FR-012f: 2-5 paints allowed
+ */
+export const ratioPredictionSchema = z.object({
+  paints: z.array(paintSelectionSchema)
+    .min(2, "Ratio Prediction requires at least 2 paints")
+    .max(5, "Ratio Prediction allows maximum 5 paints"),
+  mode: z.enum(['Standard', 'Enhanced'])
+})
+
+/**
+ * Session save validation
+ */
+export const sessionSaveSchema = z.object({
+  name: z.string()
+    .min(1, "Session name is required")
+    .max(100, "Session name must be 100 characters or less"),
+  notes: z.string()
+    .max(1000, "Notes must be 1000 characters or less")
+    .optional(),
+  imageUrl: z.string()
+    .url("Please enter a valid URL")
+    .optional()
+    .or(z.literal(''))
+})
+
+/**
+ * Hex color validation
+ */
+export const hexColorSchema = z.string()
+  .regex(/^#[0-9A-Fa-f]{6}$/, "Please enter a valid hex color (e.g., #FF5733)")
