@@ -54,9 +54,10 @@ export const paintVolumeSchema = z.number()
 
 /**
  * Paint selection with volume validation
+ * T025: UUID validation for paint IDs
  */
 export const paintSelectionSchema = z.object({
-  paintId: z.string().min(1, "Paint selection is required"),
+  paintId: z.string().uuid("Invalid paint ID"),
   volume: paintVolumeSchema
 })
 
@@ -92,3 +93,7 @@ export const sessionSaveSchema = z.object({
  */
 export const hexColorSchema = z.string()
   .regex(/^#[0-9A-Fa-f]{6}$/, "Please enter a valid hex color (e.g., #FF5733)")
+
+// T025: Type exports for TypeScript
+export type PaintSelection = z.infer<typeof paintSelectionSchema>
+export type RatioPredictionForm = z.infer<typeof ratioPredictionSchema>

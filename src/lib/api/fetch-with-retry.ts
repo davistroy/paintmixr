@@ -59,11 +59,15 @@ export async function fetchWithRetry(
 
       // Only retry if we have retries left and error is retryable
       if (attempt < maxRetries && isRetryable) {
+        // T030-T031: Log retry attempts (NFR-001c, NFR-006)
+        console.warn(`Request to ${url} timed out after ${timeout}ms, retrying... (attempt ${attempt + 1}/${maxRetries})`)
         // Wait before retry
         await new Promise(resolve => setTimeout(resolve, retryDelay))
         continue
       }
 
+      // T030-T031: Log final failure (NFR-006)
+      console.error(`Request to ${url} failed after ${attempt + 1} attempt(s):`, error)
       // No more retries or non-retryable error
       throw error
     }
