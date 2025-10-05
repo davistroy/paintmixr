@@ -4,6 +4,10 @@ import './globals.css'
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import { getServerSession } from '@/lib/supabase/server'
 import { Toaster } from '@/components/ui/toaster'
+import { ModalProvider } from '@/contexts/ModalContext'
+import { DebugProvider } from '@/contexts/DebugContext'
+import { HamburgerMenu } from '@/components/HamburgerMenu'
+import { DebugConsoleWrapper } from '@/components/DebugConsoleWrapper'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -77,11 +81,21 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body className={`${inter.className} h-full antialiased`}>
-        <AuthProvider initialSession={session} initialUser={user}>
-          <div id="root" className="min-h-full">
-            {children}
-          </div>
-        </AuthProvider>
+        <ModalProvider>
+          <DebugProvider>
+            <AuthProvider initialSession={session} initialUser={user}>
+              <div id="root" className="min-h-full">
+                {children}
+              </div>
+
+              {/* Hamburger Menu - fixed top-right */}
+              <HamburgerMenu />
+
+              {/* Debug Console - conditionally rendered based on debug mode */}
+              <DebugConsoleWrapper />
+            </AuthProvider>
+          </DebugProvider>
+        </ModalProvider>
 
         {/* Toast notifications */}
         <Toaster />

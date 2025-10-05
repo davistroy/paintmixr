@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react' // Cache bust: 2025-10-04-v2
+import React, { useState, useEffect } from 'react' // Cache bust: 2025-10-04-v2
 import type { ColorValue, MixingFormula, CreateSessionRequest } from '@/types/types'
 import { getUserPaintOptions } from '@/lib/user-paints'
 import { labToHex } from '@/lib/color-science'
@@ -15,6 +15,7 @@ import ColorValueComponent from '@/components/color-display/ColorValue'
 import { Checkbox } from '@/components/ui/checkbox'
 import { fetchWithRetry } from '@/lib/api/fetch-with-retry'
 import { useToast } from '@/hooks/use-toast'
+import { useModal } from '@/contexts/ModalContext'
 
 type InputMethod = 'color_picker' | 'hex_input' | 'image_upload'
 type AppMode = 'color_matching' | 'ratio_prediction'
@@ -26,6 +27,7 @@ interface PaintRatioInput {
 
 const PaintMixr: React.FC = () => {
   const { toast } = useToast()
+  const { openModal, closeModal } = useModal()
   const [appMode, setAppMode] = useState<AppMode>('color_matching')
   const [inputMethod, setInputMethod] = useState<InputMethod>('color_picker')
   const [targetColor, setTargetColor] = useState<ColorValue | null>(null)
@@ -42,6 +44,15 @@ const PaintMixr: React.FC = () => {
     { paint_id: '', volume_ml: 0 },
     { paint_id: '', volume_ml: 0 },
   ])
+
+  // Track modal state for ModalContext integration
+  useEffect(() => {
+    if (showSaveForm) {
+      openModal()
+    } else {
+      closeModal()
+    }
+  }, [showSaveForm, openModal, closeModal])
 
   const handleColorInput = (color: ColorValue) => {
     setTargetColor(color)
