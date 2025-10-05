@@ -9,6 +9,21 @@
  */
 
 // ============================================================================
+// Debug Types (Feature 009-add-hamburger-menu)
+// ============================================================================
+
+/**
+ * Debug log entry for session tracking
+ * Stored in CircularBuffer with 5MB total size limit
+ */
+export interface DebugLogEntry {
+  sessionId: string
+  timestamp: string // ISO 8601
+  message: string
+  data?: unknown // Optional metadata
+}
+
+// ============================================================================
 // Color Types
 // ============================================================================
 

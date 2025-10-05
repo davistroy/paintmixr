@@ -322,6 +322,74 @@ export const emailSigninSchema = z.object({
 4. **Mode-aware parameters**: Enhanced uses maxPaintCount=5, Standard uses 3
 5. **Always use route handler client**: Never use Admin client in `/api/optimize`
 
+## Hamburger Navigation Menu (Feature 009) - COMPLETED 2025-10-05
+
+### Component Architecture
+- **HamburgerMenu.tsx**: Fixed hamburger icon with dropdown menu (Radix UI DropdownMenu)
+  - 4 menu items: Session History, Debug Mode toggle, About, Logout
+  - Hides when modals are open (integrates with ModalContext)
+  - 44x44px minimum tap target for mobile accessibility
+  - 150ms CSS transitions with `motion-reduce:transition-none` support
+- **DebugConsole.tsx**: Overlay console at bottom of screen showing last 10 debug logs
+  - Auto-scroll to newest entries, text wrapping toggle, log download
+  - React.memo optimization + 100ms debounced updates for 50+ events/sec performance
+  - Mobile-responsive controls with 44px tap targets
+- **AboutDialog.tsx**: Modal displaying app metadata (version, release date, developers, GitHub)
+  - Radix UI Dialog with keyboard navigation, ESC to close, click-outside to dismiss
+
+### Context Providers (Global State Management)
+- **DebugContext** (`src/contexts/DebugContext.tsx`): Debug mode state and logging
+  - Session management with UUID generation
+  - CircularBuffer for log storage (5MB max, FIFO eviction)
+  - Event interceptors for fetch calls, clicks, and errors
+  - Download logs as formatted text file
+  - Usage: `const { isDebugEnabled, enableDebug, log } = useDebug()`
+- **ModalContext** (`src/contexts/ModalContext.tsx`): Global modal state tracking
+  - Simple boolean flag for "is any modal open?"
+  - Used to hide hamburger menu when modals are open
+  - Pattern for future modal coordination: `openModal()` on mount, `closeModal()` on unmount
+
+### Utility Patterns
+- **CircularBuffer** (`src/lib/debug/circular-buffer.ts`): Generic FIFO buffer with byte-size limit
+  - Uses Blob API for accurate byte-size calculation via JSON serialization
+  - Automatic eviction when buffer exceeds maxSize
+  - Pattern for bounded in-memory storage (prevents memory leaks)
+  - Usage: `const buffer = new CircularBuffer<T>(5 * 1024 * 1024)` for 5MB buffer
+- **Event Interceptors** (`src/lib/debug/event-interceptors.ts`):
+  - `interceptFetch`: Wraps global fetch to log all HTTP requests
+  - `interceptClicks`: Adds document-level click listener for user interactions
+  - `interceptErrors`: Wraps window.onerror and unhandledrejection for error logging
+  - Each returns cleanup function for proper teardown
+
+### Key Technical Decisions
+1. **Radix UI for Dropdowns and Dialogs**: Built-in accessibility, keyboard nav, focus management
+2. **Context-based State Management**: Avoids prop drilling for global debug/modal state
+3. **Performance Optimizations**:
+   - React.memo on DebugConsole prevents re-renders when parent updates
+   - 100ms debounce on log updates batches rapid events (50/sec throughput)
+   - useCallback on event handlers prevents function re-creation
+4. **Mobile-First Responsive Design**:
+   - All tap targets ≥ 44x44px (iOS/Android standards)
+   - Responsive padding and layout (sm: breakpoint for desktop enhancements)
+   - Flexbox column-to-row transitions on controls
+5. **Accessibility (WCAG 2.1 AA)**:
+   - focus-visible: for keyboard-only focus indicators (better UX than :focus)
+   - ARIA labels on all interactive elements (aria-label, aria-expanded, role)
+   - Semantic HTML (buttons, labels, native inputs)
+
+### Performance Baselines (for Regression Testing)
+- **Menu Animation**: <200ms open/close duration (150ms target)
+- **Debug Logging Throughput**: >10 events/sec without UI lag (tested at 50/sec)
+- **Memory Leak**: <10MB delta after 100 menu toggles
+- **Debounce Window**: 100ms batch window for log entry updates
+
+### Common Pitfalls
+1. **Don't add modals without ModalContext integration**: Always call `openModal()` on mount and `closeModal()` on unmount to hide hamburger menu
+2. **CircularBuffer size limits**: 5MB is generous, but consider lowering for production if memory is constrained
+3. **Event interceptors must be cleaned up**: Always store cleanup functions and call them when disabling debug mode
+4. **focus-visible vs focus**: Use focus-visible: for keyboard-only indicators (better mouse UX)
+5. **Mobile tap targets**: Always test on real devices (375px width minimum), simulators can be misleading
+
 ## Bug Fixes from E2E Testing (Feature 006) - IN PROGRESS 2025-10-03
 
 ### Supabase Client Pattern in API Routes (CRITICAL)
