@@ -276,8 +276,8 @@ const PaintMixr: React.FC = () => {
         throw new Error(errorData.message || 'Failed to save session')
       }
 
-      setShowSaveForm(false)
-      // Show success message or redirect
+      // Don't close the dialog here - let SaveForm's onSuccess callback handle it
+      // after showing the success toast (SaveForm.tsx lines 89-94)
     } catch (err) {
       throw err // Let SaveForm handle the error
     }
