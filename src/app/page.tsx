@@ -14,6 +14,7 @@ import SaveForm from '@/components/session-manager/SaveForm'
 import ColorValueComponent from '@/components/color-display/ColorValue'
 import { Checkbox } from '@/components/ui/checkbox'
 import { fetchWithRetry } from '@/lib/api/fetch-with-retry'
+import { useToast } from '@/hooks/use-toast'
 
 type InputMethod = 'color_picker' | 'hex_input' | 'image_upload'
 type AppMode = 'color_matching' | 'ratio_prediction'
@@ -24,6 +25,7 @@ interface PaintRatioInput {
 }
 
 const PaintMixr: React.FC = () => {
+  const { toast } = useToast()
   const [appMode, setAppMode] = useState<AppMode>('color_matching')
   const [inputMethod, setInputMethod] = useState<InputMethod>('color_picker')
   const [targetColor, setTargetColor] = useState<ColorValue | null>(null)
@@ -276,8 +278,15 @@ const PaintMixr: React.FC = () => {
         throw new Error(errorData.message || 'Failed to save session')
       }
 
-      // Don't close the dialog here - let SaveForm's onSuccess callback handle it
-      // after showing the success toast (SaveForm.tsx lines 89-94)
+      // Show success toast from parent component (persists after dialog closes)
+      toast({
+        title: 'Session saved successfully',
+        variant: 'success',
+        duration: 3000,
+      })
+
+      // Close dialog after brief delay to allow toast to appear
+      setTimeout(() => setShowSaveForm(false), 500)
     } catch (err) {
       throw err // Let SaveForm handle the error
     }
@@ -631,7 +640,6 @@ const PaintMixr: React.FC = () => {
                 formula={formula!}
                 onSave={handleSaveSession}
                 onCancel={() => setShowSaveForm(false)}
-                onSuccess={() => setShowSaveForm(false)}
               />
             </div>
           </div>

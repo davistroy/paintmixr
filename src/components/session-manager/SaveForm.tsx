@@ -79,19 +79,13 @@ const SaveForm: React.FC<SaveFormProps> = ({
 
       await onSave(sessionData)
 
-      // Show success toast
-      toast({
-        title: 'Session saved successfully',
-        variant: 'success',
-        duration: 3000,
-      })
+      // Success toast now shown by parent component (page.tsx)
+      // Parent will close dialog after showing toast
 
-      // Wait 500ms then call onSuccess (parent will close dialog)
-      setTimeout(() => {
-        if (onSuccess) {
-          onSuccess()
-        }
-      }, 500)
+      // Call onSuccess callback immediately (parent handles toast + delay)
+      if (onSuccess) {
+        onSuccess()
+      }
     } catch (err) {
       // Translate error to user-friendly message
       const userMessage = translateApiError({
