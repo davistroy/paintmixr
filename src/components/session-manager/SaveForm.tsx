@@ -82,7 +82,7 @@ const SaveForm: React.FC<SaveFormProps> = ({
       // Show success toast
       toast({
         title: 'Session saved successfully',
-        variant: 'default',
+        variant: 'success',
         duration: 3000,
       })
 
