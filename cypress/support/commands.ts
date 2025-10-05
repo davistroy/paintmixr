@@ -44,6 +44,11 @@ declare global {
       checkAccessibility(): Chainable<void>
       waitForOptimizationComplete(): Chainable<void>
       validateColorAccuracy(targetDeltaE: number): Chainable<void>
+
+      /**
+       * Tab keyboard navigation for accessibility testing
+       */
+      tab(options?: { shift?: boolean }): Chainable<Element>
     }
   }
 }
@@ -151,6 +156,33 @@ Cypress.Commands.add('validateColorAccuracy', (targetDeltaE: number) => {
     const deltaE = parseFloat(deltaEText.replace('ΔE: ', ''));
     expect(deltaE).to.be.lessThan(targetDeltaE + 0.1);
   });
+});
+
+// Tab navigation for accessibility testing
+Cypress.Commands.add('tab', { prevSubject: 'optional' }, (subject, options = {}) => {
+  const keyCode = 9; // Tab key code
+  const shiftKey = options.shift || false;
+
+  if (subject) {
+    // Tab from specific element
+    cy.wrap(subject).trigger('keydown', {
+      keyCode,
+      shiftKey,
+      which: keyCode,
+      key: 'Tab'
+    });
+  } else {
+    // Tab from currently focused element or body
+    cy.focused().trigger('keydown', {
+      keyCode,
+      shiftKey,
+      which: keyCode,
+      key: 'Tab'
+    });
+  }
+
+  // Return currently focused element after tab
+  return cy.focused();
 });
 
 export {}
