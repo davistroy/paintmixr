@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-10-05T12:47:02.718Z",
+  "timestamp": "2025-10-05T23:54:03.766Z",
   "metrics": {
-    "totalSize": 536672,
-    "bundleCount": 34,
-    "averageSize": 15784.470588235294,
-    "largestBundle": 99622
+    "totalSize": 0,
+    "bundleCount": 0,
+    "averageSize": null,
+    "largestBundle": null
   }
 }

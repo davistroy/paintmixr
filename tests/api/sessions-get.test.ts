@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { SessionDetailResponse } from '@/types/types'
+import { SessionDetailResponse } from '@/lib/types'
 
 // Import the actual API route handler (this will fail initially)
 // import { GET } from '@/app/api/sessions/[id]/route'

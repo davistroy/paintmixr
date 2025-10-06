@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import type { SessionData, CreateSessionRequest } from '@/types/types'
+import type { SessionData, CreateSessionRequest } from '@/lib/types'
 
 interface SessionListParams {
   limit?: number
@@ -204,12 +204,7 @@ export const useSessions = (): UseSessionsResult => {
     const session = state.sessions.find(s => s.id === sessionId)
     if (!session) return
 
-    try {
-      await updateSession(sessionId, { is_favorite: !session.is_favorite })
-    } catch (err) {
-      // Error already handled in updateSession
-      throw err
-    }
+    await updateSession(sessionId, { is_favorite: !session.is_favorite })
   }, [state.sessions, updateSession])
 
   const loadMore = useCallback(async (): Promise<void> => {

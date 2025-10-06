@@ -15,7 +15,8 @@
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import type { Database } from '@/types/types'
+import type { Database } from '@/lib/types'
+import { logger } from '@/lib/logging/logger';
 
 /**
  * Create Supabase server client with cookie-based session storage
@@ -61,7 +62,7 @@ export async function getServerSession() {
   } = await supabase.auth.getSession()
 
   if (error) {
-    console.error('Server get session error:', error)
+    logger.error('Server get session error:', error)
     return { session: null, user: null, error }
   }
 

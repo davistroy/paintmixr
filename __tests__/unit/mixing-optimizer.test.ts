@@ -17,7 +17,7 @@ import {
   isWithinTotalVolumeLimit,
   calculateTotalVolume
 } from '@/lib/mixing-optimization/constraints'
-import type { VolumeConstraints } from '@/types/mixing'
+import type { VolumeConstraints } from '@/lib/types'
 
 describe('Paint Mixing Optimization', () => {
   describe('Volume Constraint Validation', () => {

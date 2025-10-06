@@ -28,6 +28,7 @@ import { createClient as createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createRouteClient } from '@/lib/supabase/route-handler'
 import { emailSigninSchema } from '@/lib/auth/validation'
 import { checkRateLimit, recordAuthAttempt } from '@/lib/auth/rate-limit'
+import { logger } from '@/lib/logging/logger';
 import {
   getLockoutMetadata,
   isUserLockedOut,
@@ -92,10 +93,10 @@ export async function POST(request: NextRequest) {
     // Note: TypeScript types don't include 'filter' parameter, but it's supported by Supabase API
     const { data: users, error: listError } = await adminClient.auth.admin.listUsers({
       filter: `email.eq.${email}`
-    } as any)
+    } as { filter: string })
 
     if (listError) {
-      console.error('Error querying user by email:', listError)
+      logger.error({ err: listError }, 'Error querying user by email')
       // Generic error (prevent enumeration)
       recordAuthAttempt(ipAddress)
       return NextResponse.json(
@@ -144,11 +145,11 @@ export async function POST(request: NextRequest) {
     // Note: auth.identities requires RPC function or direct admin query
     // For now, skip OAuth check if user exists with email provider
     // This will be handled by Supabase Auth hooks in production
-    const hasEmailProvider = user.identities?.some((identity: any) => identity.provider === 'email')
-    const hasOAuthProvider = user.identities?.some((identity: any) => identity.provider !== 'email')
+    const hasEmailProvider = user.identities?.some((identity: { provider: string }) => identity.provider === 'email')
+    const hasOAuthProvider = user.identities?.some((identity: { provider: string }) => identity.provider !== 'email')
 
     if (hasOAuthProvider && !hasEmailProvider) {
-      const oauthProvider = user.identities?.find((identity: any) => identity.provider !== 'email')?.provider
+      const oauthProvider = user.identities?.find((identity: { provider: string }) => identity.provider !== 'email')?.provider
       return NextResponse.json(
         {
           error: 'oauth_precedence',
@@ -186,7 +187,7 @@ export async function POST(request: NextRequest) {
       redirectTo: '/dashboard'
     })
   } catch (error) {
-    console.error('Email signin error:', error)
+    logger.error({ err: error }, 'Email signin error')
     return NextResponse.json(
       {
         error: 'An error occurred during sign in',

@@ -68,7 +68,7 @@ export default function CollectionManager({
         is_default: false,
         tags: []
       });
-    } catch (error) {
+    } catch {
       // Error is already set in state by saveCollection
     }
   };

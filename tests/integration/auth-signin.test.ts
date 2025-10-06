@@ -8,7 +8,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { EmailSigninInput, EmailSigninResponse } from '@/types/auth'
+import { EmailSigninInput, EmailSigninResponse } from '@/lib/types'
 
 // Mock Supabase client
 jest.mock('@/lib/supabase/server', () => ({

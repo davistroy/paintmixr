@@ -9,8 +9,8 @@
  * paint formulations including metallic, pearlescent, and high-opacity pigments.
  */
 
-import { LABColor } from '../../types/mixing';
-import { PigmentProperties } from '../../types/mixing';
+import { LABColor } from '@/lib/types';
+import { PigmentProperties } from '@/lib/types';
 
 // Enhanced Kubelka-Munk constants
 export const KUBELKA_MUNK_CONSTANTS = {

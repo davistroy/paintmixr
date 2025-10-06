@@ -37,7 +37,7 @@ class PerformanceMonitor {
   endTimer(name: string, metadata?: Record<string, any>): number {
     const startTime = this.timers.get(name)
     if (!startTime) {
-      console.warn(`Timer '${name}' was not started`)
+      logger.warn(`Timer '${name}' was not started`)
       return 0
     }
 
@@ -258,7 +258,7 @@ class PerformanceMonitor {
 
     try {
       lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] })
-    } catch (e) {
+    } catch {
       // LCP not supported
     }
 
@@ -277,7 +277,7 @@ class PerformanceMonitor {
 
     try {
       fidObserver.observe({ entryTypes: ['first-input'] })
-    } catch (e) {
+    } catch {
       // FID not supported
     }
 
@@ -301,7 +301,7 @@ class PerformanceMonitor {
 
     try {
       clsObserver.observe({ entryTypes: ['layout-shift'] })
-    } catch (e) {
+    } catch {
       // CLS not supported
     }
   }

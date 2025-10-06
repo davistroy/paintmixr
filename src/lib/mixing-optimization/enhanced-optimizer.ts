@@ -44,8 +44,8 @@ import { optimizeWithTPEHybrid } from './tpe-hybrid';
  *   accuracyTarget: 2.0
  * });
  *
- * console.log(result.formula.deltaE); // Delta E ≤ 2.0
- * console.log(result.metrics.algorithmUsed); // 'differential_evolution' or 'tpe_hybrid'
+ * logger.info(result.formula.deltaE); // Delta E ≤ 2.0
+ * logger.info(result.metrics.algorithmUsed); // 'differential_evolution' or 'tpe_hybrid'
  * ```
  */
 export async function optimizeEnhanced(

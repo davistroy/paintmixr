@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ZodError } from 'zod'
+import { ZodError, ZodSchema } from 'zod'
+import { logger } from '@/lib/logging/logger';
 
 interface ErrorContext {
   endpoint: string
@@ -13,7 +14,7 @@ interface ErrorContext {
 interface ApiError {
   code: string
   message: string
-  details?: any
+  details?: Record<string, unknown>
   context: ErrorContext
 }
 
@@ -21,9 +22,9 @@ export class AppError extends Error {
   public readonly code: string
   public readonly statusCode: number
   public readonly isOperational: boolean
-  public readonly details?: any
+  public readonly details?: Record<string, unknown>
 
-  constructor(message: string, code: string, statusCode: number = 500, details?: any) {
+  constructor(message: string, code: string, statusCode: number = 500, details?: Record<string, unknown>) {
     super(message)
     this.code = code
     this.statusCode = statusCode
@@ -36,7 +37,7 @@ export class AppError extends Error {
 
 // Predefined error types
 export class ValidationError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'VALIDATION_ERROR', 400, details)
   }
 }
@@ -48,7 +49,7 @@ export class NotFoundError extends AppError {
 }
 
 export class ConflictError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'CONFLICT', 409, details)
   }
 }
@@ -60,7 +61,7 @@ export class RateLimitError extends AppError {
 }
 
 export class DatabaseError extends AppError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'DATABASE_ERROR', 500, details)
   }
 }
@@ -87,10 +88,10 @@ class ErrorLogger {
 
     // In production, you'd send this to a logging service
     if (process.env.NODE_ENV === 'development') {
-      console.error('API Error:', JSON.stringify(errorLog, null, 2))
+      logger.error('API Error:', JSON.stringify(errorLog, null, 2))
     } else {
       // Production logging (e.g., Winston, Datadog, etc.)
-      console.error(JSON.stringify(errorLog))
+      logger.error(JSON.stringify(errorLog))
     }
   }
 }
@@ -138,9 +139,9 @@ function formatErrorResponse(error: Error, context: ErrorContext): ApiError {
 
 // Main error handler middleware
 export function withErrorHandler(
-  handler: (req: NextRequest, context?: any) => Promise<NextResponse>
+  handler: (req: NextRequest, context?: Record<string, unknown>) => Promise<NextResponse>
 ) {
-  return async (req: NextRequest, context?: any): Promise<NextResponse> => {
+  return async (req: NextRequest, context?: Record<string, unknown>): Promise<NextResponse> => {
     const requestId = generateRequestId()
     const errorContext: ErrorContext = {
       endpoint: req.nextUrl.pathname,
@@ -177,7 +178,7 @@ export function withErrorHandler(
 }
 
 // Async wrapper for better error handling
-export function asyncHandler<T extends any[]>(
+export function asyncHandler<T extends unknown[]>(
   fn: (...args: T) => Promise<NextResponse>
 ) {
   return (...args: T): Promise<NextResponse> => {
@@ -190,7 +191,7 @@ export function asyncHandler<T extends any[]>(
 
 // Validation helper
 export function validateRequest<T>(
-  schema: any, // Zod schema
+  schema: ZodSchema<T>,
   data: unknown
 ): T {
   try {

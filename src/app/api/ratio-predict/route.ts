@@ -10,10 +10,11 @@ import type {
   ErrorResponse,
   ColorValue,
   MixingFormula,
-} from '@/types/types'
+} from '@/lib/types'
 import { mixMultiplePaints, PaintProperties } from '@/lib/kubelka-munk'
 import { labToHex } from '@/lib/color-science'
 import { getUserPaints } from '@/lib/user-paints'
+import { logger } from '@/lib/logging/logger';
 
 // Use user's paint database from paint_colors.json
 const PAINT_DATABASE: PaintProperties[] = getUserPaints()
@@ -153,13 +154,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error('Ratio prediction error:', error)
+    logger.error('Ratio prediction error:', error)
 
     if (error instanceof z.ZodError) {
       const errorResponse: ErrorResponse = {
         error: 'VALIDATION_ERROR',
         message: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
       }
       return NextResponse.json(errorResponse, { status: 400 })
     }

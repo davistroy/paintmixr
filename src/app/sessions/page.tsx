@@ -12,6 +12,8 @@
  * - View full session details
  */
 
+import Link from 'next/link'
+
 export default async function SessionsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -24,12 +26,12 @@ export default async function SessionsPage() {
               <h1 className="text-xl font-bold text-gray-900">PaintMixr</h1>
             </div>
             <nav className="flex items-center gap-4">
-              <a
+              <Link
                 href="/"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
                 Back to Mixer
-              </a>
+              </Link>
             </nav>
           </div>
         </div>
@@ -147,7 +149,7 @@ export default async function SessionsPage() {
 
           {/* Back Button */}
           <div className="mt-10">
-            <a
+            <Link
               href="/"
               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
@@ -165,7 +167,7 @@ export default async function SessionsPage() {
                 />
               </svg>
               Back to Color Mixer
-            </a>
+            </Link>
           </div>
         </div>
       </div>

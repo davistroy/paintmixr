@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import type { CreateSessionRequest, ColorValue, MixingFormula, InputMethod, SessionType } from '@/types/types'
+import type { CreateSessionRequest, ColorValue, MixingFormula, InputMethod, SessionType } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { translateApiError } from '@/lib/errors/user-messages'
 

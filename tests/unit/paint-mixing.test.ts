@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from '@jest/globals'
 // import { calculateKubelkaMunkMixing } from '@/lib/kubelka-munk'
 import { deltaE2000 as calculateDeltaE } from '@/lib/color-science'
 import { rgbToLab as convertRgbToLab, labToRgb as convertLabToRgb } from '@/lib/color-science'
-import type { ColorValue, PaintData, MixingFormula } from '@/types/types'
+import type { ColorValue, PaintData, MixingFormula } from '@/lib/types'
 
 // Placeholder implementations for missing functions
 function findBestColorMatch(params: any): any {

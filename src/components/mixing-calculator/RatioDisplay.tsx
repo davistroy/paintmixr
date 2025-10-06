@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import type { MixingFormula } from '@/types/types'
+import type { MixingFormula } from '@/lib/types'
 
 interface RatioDisplayProps {
   formula: MixingFormula

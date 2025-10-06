@@ -22,9 +22,13 @@ import {
 import {
   EnhancedOptimizationRequest,
   EnhancedOptimizationResponse,
+  OptimizedPaintFormula,
+  OptimizationPerformanceMetrics,
   Paint
 } from '@/lib/types';
 import { z } from 'zod';
+import { logger } from '@/lib/logging/logger';
+import { addCacheHeaders, addNoCacheHeaders } from '@/lib/contracts/api-headers';
 
 /**
  * Vercel serverless function timeout configuration
@@ -63,7 +67,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
           warnings: [],
           error: 'Authentication required'
         },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
@@ -71,7 +75,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
     let requestBody: unknown;
     try {
       requestBody = await request.json();
-    } catch (parseError) {
+    } catch {
       return NextResponse.json(
         {
           success: false,
@@ -80,7 +84,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
           warnings: [],
           error: 'Invalid JSON in request body'
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
@@ -98,7 +102,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
           warnings: [],
           error: formatZodError(validationResult.error)
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
@@ -114,7 +118,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
       .eq('user_id', user.id); // RLS enforcement - user can only access their paints
 
     if (paintsError) {
-      console.error('Error fetching paints:', paintsError);
+      logger.error('Error fetching paints:', paintsError);
       return NextResponse.json(
         {
           success: false,
@@ -123,7 +127,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
           warnings: [],
           error: 'Failed to fetch paints from database'
         },
-        { status: 500 }
+        { headers: addNoCacheHeaders(), status: 500 }
       );
     }
 
@@ -136,13 +140,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
           warnings: [],
           error: 'No paints found with provided IDs. Ensure paint IDs belong to authenticated user.'
         },
-        { status: 404 }
+        { headers: addNoCacheHeaders(), status: 404 }
       );
     }
 
     // Check if all requested paints were found
     if (paintsData.length < paintIds.length) {
-      const foundIds = new Set(paintsData.map((p: any) => p.id as string));
+      const foundIds = new Set(paintsData.map((p: { id: string }) => p.id as string));
       const missingIds = paintIds.filter(id => !foundIds.has(id));
       return NextResponse.json(
         {
@@ -152,13 +156,30 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
           warnings: [],
           error: `Paint IDs not found: ${missingIds.join(', ')}`
         },
-        { status: 404 }
+        { headers: addNoCacheHeaders(), status: 404 }
       );
     }
 
     // Convert database records to Paint type (using type assertion for Supabase types)
     // Database schema uses flat columns: hex, lab_l, lab_a, lab_b, k_coefficient, s_coefficient
-    const paints: Paint[] = paintsData.map((p: any) => ({
+    interface PaintRecord {
+      id: string;
+      name: string;
+      brand: string;
+      hex: string;
+      lab_l: number;
+      lab_a: number;
+      lab_b: number;
+      opacity: number;
+      tinting_strength: number;
+      k_coefficient: number;
+      s_coefficient: number;
+      user_id: string;
+      created_at: string;
+      updated_at: string;
+    }
+
+    const paints: Paint[] = paintsData.map((p: PaintRecord) => ({
       id: p.id as string,
       name: p.name as string,
       brand: p.brand as string,
@@ -194,7 +215,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
 
     // 5. Run optimization with timeout wrapper
     const timeLimit = validatedRequest.timeLimit || 28000;
-    let result: { formula: any; metrics: any };
+    let result: { formula: OptimizedPaintFormula; metrics: OptimizationPerformanceMetrics };
 
     try {
       // Create timeout promise
@@ -221,12 +242,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
             warnings: [],
             error: `Server timeout: Optimization exceeded ${timeLimit}ms limit`
           },
-          { status: 504 }
+          { headers: addNoCacheHeaders(), status: 504 }
         );
       }
 
       // Other optimization errors
-      console.error('Optimization error:', optimizationError);
+      logger.error('Optimization error:', optimizationError);
       return NextResponse.json(
         {
           success: false,
@@ -237,7 +258,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
             ? `Optimization failed: ${optimizationError.message}`
             : 'Optimization failed: Unknown error'
         },
-        { status: 500 }
+        { headers: addNoCacheHeaders(), status: 500 }
       );
     }
 
@@ -272,11 +293,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
       error: null
     };
 
-    return NextResponse.json(response, { status: 200 });
+    return NextResponse.json(response, { headers: addNoCacheHeaders(), status: 200 });
 
   } catch (error) {
     // Catch-all error handler
-    console.error('Unexpected error in /api/optimize:', error);
+    logger.error('Unexpected error in /api/optimize:', error);
 
     // Check for Zod validation errors
     if (error instanceof z.ZodError) {
@@ -288,7 +309,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
           warnings: [],
           error: formatZodError(error)
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
@@ -303,7 +324,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<EnhancedO
           ? `Internal server error: ${error.message}`
           : 'Internal server error'
       },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }
@@ -325,7 +346,7 @@ export async function GET() {
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
-        { status: 401 }
+        { headers: addCacheHeaders(), status: 401 }
       );
     }
 
@@ -354,13 +375,13 @@ export async function GET() {
         endpoint: '/api/optimize',
         documentation: '/specs/007-enhanced-mode-1/contracts/optimize-api.yaml'
       }
-    }, { status: 200 });
+    }, { headers: addCacheHeaders(), status: 200 });
 
   } catch (error) {
-    console.error('GET /api/optimize error:', error);
+    logger.error('GET /api/optimize error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { headers: addCacheHeaders(), status: 500 }
     );
   }
 }

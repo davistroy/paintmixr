@@ -234,7 +234,7 @@ export function badCode() {
       const violationCode = `
 import { useState } from 'react'
 import * as fs from 'fs'
-import type { Database } from '@/types/types'
+import type { Database } from '@/lib/types'
 import { supabase } from './client'
 
 export function component() {

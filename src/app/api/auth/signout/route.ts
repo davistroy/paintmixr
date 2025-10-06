@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { serverSignOut } from '@/lib/supabase/route-handler'
+import { logger } from '@/lib/logging/logger';
 
 /**
  * POST /api/auth/signout
@@ -23,7 +24,7 @@ export async function POST(_request: NextRequest) {
     const { success, error } = await serverSignOut()
 
     if (error) {
-      console.error('Sign-out error:', error)
+      logger.error({ err: error }, 'Sign-out error')
 
       return NextResponse.json(
         {
@@ -56,7 +57,7 @@ export async function POST(_request: NextRequest) {
       { status: 200 }
     )
   } catch (error) {
-    console.error('Unexpected error during sign-out:', error)
+    logger.error({ err: error }, 'Unexpected error during sign-out')
 
     return NextResponse.json(
       {
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(signinUrl)
   } catch (error) {
-    console.error('Unexpected error during sign-out:', error)
+    logger.error({ err: error }, 'Unexpected error during sign-out')
 
     const requestUrl = new URL(request.url)
     const errorUrl = new URL('/auth/error', requestUrl.origin)

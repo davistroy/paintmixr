@@ -64,7 +64,7 @@ const HexInput: React.FC<HexInputProps> = ({
           lab,
         }
         onChange(colorValue)
-      } catch (err) {
+      } catch {
         setIsValid(false)
         setLocalError('Invalid hex color format')
       }

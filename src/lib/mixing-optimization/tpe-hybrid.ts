@@ -311,14 +311,14 @@ function evaluateSample(
  * Where ci is concentration (volume ratio) of paint i
  */
 function predictMixedColorKM(paints: Paint[], ratios: number[]): LABColor {
-  let K_mix = 0;
+  let _K_mix = 0;
   let S_mix = 0;
 
   // Weighted sum of K and S coefficients
   for (let i = 0; i < paints.length; i++) {
     const km = paints[i].kubelkaMunk;
     if (km && km.k !== undefined && km.s !== undefined) {
-      K_mix += ratios[i] * km.k;
+      _K_mix += ratios[i] * km.k;
       S_mix += ratios[i] * km.s;
     } else {
       // Fallback: use paint's LAB color directly (less accurate)

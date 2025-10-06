@@ -23,7 +23,7 @@ import {
   type DEConfig
 } from '@/lib/mixing-optimization/differential-evolution';
 import type { EnhancedOptimizationRequest, LABColor, Paint } from '@/lib/types';
-import type { OptimizationPaint } from '@/types/mixing';
+import type { OptimizationPaint } from '@/lib/types';
 
 // Mock paint collection for testing
 const createMockPaints = (count: number): Paint[] => {

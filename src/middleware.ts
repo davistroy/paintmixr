@@ -10,9 +10,9 @@
  * - Preserves intended destination in redirect parameter
  */
 
-// @ts-nocheck
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { logger } from '@/lib/logging/logger'
 
 /**
  * Public routes that don't require authentication
@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing Supabase environment variables')
+    logger.error('Missing Supabase environment variables')
     return redirectToSignIn(request, pathname)
   }
 
@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
       get(name: string) {
         return request.cookies.get(name)?.value
       },
-      set(name: string, value: string, options: any) {
+      set(name: string, value: string, options: CookieOptions) {
         request.cookies.set({
           name,
           value,
@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest) {
           ...options
         })
       },
-      remove(name: string, options: any) {
+      remove(name: string, options: CookieOptions) {
         request.cookies.set({
           name,
           value: '',
@@ -111,21 +111,21 @@ export async function middleware(request: NextRequest) {
 
     // Check if session is valid
     if (error || !session) {
-      console.log('No valid session, redirecting to sign-in')
+      logger.info('No valid session, redirecting to sign-in')
       return redirectToSignIn(request, pathname)
     }
 
     // Check if session is expired
     const now = Math.floor(Date.now() / 1000)
     if (session.expires_at && session.expires_at < now) {
-      console.log('Session expired, redirecting to sign-in')
+      logger.info('Session expired, redirecting to sign-in')
       return redirectToSignIn(request, pathname, true)
     }
 
     // Session is valid, allow request
     return response
   } catch (error) {
-    console.error('Middleware error:', error)
+    logger.error({ err: error }, 'Middleware error')
     return redirectToSignIn(request, pathname)
   }
 }

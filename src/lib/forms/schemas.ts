@@ -73,17 +73,21 @@ export const ratioPredictionSchema = z.object({
 })
 
 /**
- * Session save validation
+ * Session save validation (with XSS protection)
+ * T044: XSS input sanitization
  */
 export const sessionSaveSchema = z.object({
   name: z.string()
     .min(1, "Session name is required")
-    .max(100, "Session name must be 100 characters or less"),
+    .max(100, "Session name must be 100 characters or less")
+    .regex(/^[a-zA-Z0-9\s\-_]+$/, "Session name can only contain letters, numbers, spaces, hyphens, and underscores"),
   notes: z.string()
-    .max(1000, "Notes must be 1000 characters or less")
+    .max(500, "Notes must be 500 characters or less") // Reduced from 1000 for security
+    .regex(/^[a-zA-Z0-9\s\-_.,!?()]+$/, "Notes contain invalid characters")
     .optional(),
   imageUrl: z.string()
     .url("Please enter a valid URL")
+    .max(500, "URL must be 500 characters or less")
     .optional()
     .or(z.literal(''))
 })

@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-10-05T12:47:02.758Z",
-  "duration": 87935,
-  "success": true,
-  "errorCount": 1,
-  "warningCount": 5,
-  "bundleCount": 34,
-  "totalSize": 536672
+  "timestamp": "2025-10-05T23:54:03.855Z",
+  "duration": 39293,
+  "success": false,
+  "errorCount": 0,
+  "warningCount": 0,
+  "bundleCount": 0,
+  "totalSize": 0
 }

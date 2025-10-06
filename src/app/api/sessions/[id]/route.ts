@@ -15,8 +15,9 @@ import type {
   MixingSessionDetail,
   MixingSession,
   ErrorResponse,
-} from '@/types/types'
+} from '@/lib/types'
 import { SessionService } from '@/lib/supabase/sessions'
+import { logger } from '@/lib/logging/logger'
 
 interface RouteParams {
   params: Promise<{
@@ -56,13 +57,13 @@ export async function GET(
     return NextResponse.json(session)
 
   } catch (error) {
-    console.error('Session fetch error:', error)
+    logger.error({ err: error }, 'Session fetch error')
 
     if (error instanceof z.ZodError) {
       const errorResponse: ErrorResponse = {
         error: 'VALIDATION_ERROR',
         message: 'Invalid session ID',
-        details: error.errors,
+        details: error.issues,
       }
       return NextResponse.json(errorResponse, { status: 400 })
     }
@@ -112,13 +113,13 @@ export async function PATCH(
     return NextResponse.json(updatedSession)
 
   } catch (error) {
-    console.error('Session update error:', error)
+    logger.error({ err: error }, 'Session update error')
 
     if (error instanceof z.ZodError) {
       const errorResponse: ErrorResponse = {
         error: 'VALIDATION_ERROR',
         message: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
       }
       return NextResponse.json(errorResponse, { status: 400 })
     }
@@ -164,13 +165,13 @@ export async function DELETE(
     return NextResponse.json({ success: true })
 
   } catch (error) {
-    console.error('Session deletion error:', error)
+    logger.error({ err: error }, 'Session deletion error')
 
     if (error instanceof z.ZodError) {
       const errorResponse: ErrorResponse = {
         error: 'VALIDATION_ERROR',
         message: 'Invalid session ID',
-        details: error.errors,
+        details: error.issues,
       }
       return NextResponse.json(errorResponse, { status: 400 })
     }

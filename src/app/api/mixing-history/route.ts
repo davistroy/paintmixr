@@ -4,9 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/route-handler';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/database/database.types';
+import { logger } from '@/lib/logging/logger';
+import { addCacheHeaders, addNoCacheHeaders } from '@/lib/contracts/api-headers';
 
 const QueryParamsSchema = z.object({
   page: z.coerce.number().min(1).default(1),
@@ -61,7 +65,7 @@ const MixingHistoryCreateSchema = z.object({
   would_use_again: z.boolean().optional()
 });
 
-async function getCurrentUser(supabase: any) {
+async function getCurrentUser(supabase: SupabaseClient<Database>) {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) {
     throw new Error('Unauthorized');
@@ -71,7 +75,7 @@ async function getCurrentUser(supabase: any) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     // Parse query parameters
@@ -80,7 +84,7 @@ export async function GET(request: NextRequest) {
     const parsedParams = QueryParamsSchema.parse(queryParams);
 
     // Build filters
-    const filters: any = {
+    const filters: Record<string, unknown> = {
       archived: false
     };
 
@@ -136,7 +140,7 @@ export async function GET(request: NextRequest) {
             message: result.error.message
           }
         },
-        { status: 500 }
+        { headers: addCacheHeaders(), status: 500 }
       );
     }
 
@@ -166,10 +170,10 @@ export async function GET(request: NextRequest) {
         filters_applied: Object.keys(filters).filter(key => filters[key] !== undefined).length,
         query_timestamp: new Date().toISOString()
       }
-    });
+    }, { headers: addCacheHeaders() });
 
   } catch (error) {
-    console.error('GET /api/mixing-history error:', error);
+    logger.error('GET /api/mixing-history error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -177,30 +181,30 @@ export async function GET(request: NextRequest) {
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid query parameters',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addCacheHeaders(), status: 500 }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     const body = await request.json();
@@ -220,7 +224,7 @@ export async function POST(request: NextRequest) {
             message: result.error.message
           }
         },
-        { status: 500 }
+        { headers: addNoCacheHeaders(), status: 500 }
       );
     }
 
@@ -232,7 +236,7 @@ export async function POST(request: NextRequest) {
         )
       );
     } catch (usageError) {
-      console.warn('Failed to update paint usage stats:', usageError);
+      logger.warn('Failed to update paint usage stats:', usageError);
       // Don't fail the request if usage stats update fails
     }
 
@@ -244,11 +248,11 @@ export async function POST(request: NextRequest) {
           session_id: result.data?.id
         }
       },
-      { status: 201 }
+      { headers: addNoCacheHeaders(), status: 201 }
     );
 
   } catch (error) {
-    console.error('POST /api/mixing-history error:', error);
+    logger.error('POST /api/mixing-history error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -256,23 +260,23 @@ export async function POST(request: NextRequest) {
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid mixing session data',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }
@@ -280,7 +284,7 @@ export async function POST(request: NextRequest) {
 // Analytics endpoint for dashboard metrics
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     const url = new URL(request.url);
@@ -289,53 +293,58 @@ export async function PUT(request: NextRequest) {
     if (!analyticsType) {
       return NextResponse.json(
         { error: { code: 'MISSING_PARAMETER', message: 'Analytics type required' } },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     const repository = new EnhancedPaintRepository(supabase);
 
     switch (analyticsType) {
-      case 'performance-trends':
+      case 'performance-trends': {
         const performanceData = await repository.getPerformanceTrends(user.id);
-        return NextResponse.json({ data: performanceData });
+        return NextResponse.json({ data: performanceData }, { headers: addNoCacheHeaders() });
+      }
 
-      case 'color-accuracy-distribution':
+      case 'color-accuracy-distribution': {
         const accuracyData = await repository.getColorAccuracyDistribution(user.id);
-        return NextResponse.json({ data: accuracyData });
+        return NextResponse.json({ data: accuracyData }, { headers: addNoCacheHeaders() });
+      }
 
-      case 'algorithm-effectiveness':
+      case 'algorithm-effectiveness': {
         const algorithmData = await repository.getAlgorithmEffectiveness(user.id);
-        return NextResponse.json({ data: algorithmData });
+        return NextResponse.json({ data: algorithmData }, { headers: addNoCacheHeaders() });
+      }
 
-      case 'cost-analysis':
+      case 'cost-analysis': {
         const costData = await repository.getMixingCostAnalysis(user.id);
-        return NextResponse.json({ data: costData });
+        return NextResponse.json({ data: costData }, { headers: addNoCacheHeaders() });
+      }
 
-      case 'project-summary':
+      case 'project-summary': {
         const projectData = await repository.getProjectSummary(user.id);
-        return NextResponse.json({ data: projectData });
+        return NextResponse.json({ data: projectData }, { headers: addNoCacheHeaders() });
+      }
 
       default:
         return NextResponse.json(
           { error: { code: 'INVALID_ANALYTICS_TYPE', message: 'Unsupported analytics type' } },
-          { status: 400 }
+          { headers: addNoCacheHeaders(), status: 400 }
         );
     }
 
   } catch (error) {
-    console.error('PUT /api/mixing-history analytics error:', error);
+    logger.error('PUT /api/mixing-history analytics error:', error);
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Analytics request failed' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }

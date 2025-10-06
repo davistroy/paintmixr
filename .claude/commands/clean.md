@@ -1,0 +1,1 @@
+clean up the files in this project - go through all of the files and move any files that were/are temporary (like testing resuts or old investigations) into a new "junk" folder that can eventually be deleted.  recommend any other cleanup activities you can think of
