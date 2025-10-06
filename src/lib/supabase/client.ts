@@ -14,7 +14,8 @@
  */
 
 import { createBrowserClient } from '@supabase/ssr'
-import type { Database } from '@/types/types'
+import type { Database } from '@/lib/types'
+import { logger } from '@/lib/logging/logger';
 
 /**
  * Create Supabase browser client with cookie-based session storage
@@ -61,7 +62,7 @@ export async function signInWithOAuth(
   })
 
   if (error) {
-    console.error(`OAuth sign-in error (${provider}):`, error)
+    logger.error(`OAuth sign-in error (${provider}):`, error)
     return { data: null, error }
   }
 
@@ -78,7 +79,7 @@ export async function signOut() {
   const { error } = await supabase.auth.signOut()
 
   if (error) {
-    console.error('Sign-out error:', error)
+    logger.error('Sign-out error:', error)
     return { error }
   }
 

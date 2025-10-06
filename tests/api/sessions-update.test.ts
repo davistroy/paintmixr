@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { UpdateSessionRequest, SessionResponse } from '@/types/types'
+import { UpdateSessionRequest, SessionResponse } from '@/lib/types'
 
 // Import the actual API route handler (this will fail initially)
 // import { PATCH } from '@/app/api/sessions/[id]/route'

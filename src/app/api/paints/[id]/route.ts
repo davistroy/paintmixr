@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/route-handler';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { EnhancedPaintUpdateSchema } from '@/lib/database/models/enhanced-paint';
 import { z } from 'zod';
+import { logger } from '@/lib/logging/logger';
+import { addCacheHeaders, addNoCacheHeaders } from '@/lib/contracts/api-headers';
 
 async function getCurrentUser(supabase: any) {
   const { data: { user }, error } = await supabase.auth.getUser();
@@ -14,12 +16,10 @@ async function getCurrentUser(supabase: any) {
 
 const PaintIdSchema = z.string().uuid('Invalid paint ID format');
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     // Validate paint ID
@@ -36,14 +36,14 @@ export async function GET(
             message: result.error.message
           }
         },
-        { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
+        { headers: addCacheHeaders(), status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
       );
     }
 
     if (!result.data) {
       return NextResponse.json(
         { error: { code: 'NOT_FOUND', message: 'Paint not found' } },
-        { status: 404 }
+        { headers: addCacheHeaders(), status: 404 }
       );
     }
 
@@ -53,10 +53,10 @@ export async function GET(
         retrieved_at: new Date().toISOString(),
         version: result.data.version
       }
-    });
+    }, { headers: addCacheHeaders() });
 
   } catch (error) {
-    console.error('GET /api/paints/[id] error:', error);
+    logger.error({ error, route: 'GET /api/paints/[id]' }, 'API error');
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -64,33 +64,31 @@ export async function GET(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid paint ID',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addCacheHeaders(), status: 500 }
     );
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     // Validate paint ID
@@ -112,7 +110,7 @@ export async function PATCH(
             message: result.error.message
           }
         },
-        { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
+        { headers: addNoCacheHeaders(), status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
       );
     }
 
@@ -122,10 +120,10 @@ export async function PATCH(
         updated_at: result.data?.updated_at,
         version: result.data?.version
       }
-    });
+    }, { headers: addNoCacheHeaders() });
 
   } catch (error) {
-    console.error('PATCH /api/paints/[id] error:', error);
+    logger.error({ error, route: 'PATCH /api/paints/[id]' }, 'API error');
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -133,33 +131,31 @@ export async function PATCH(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid update data',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     // Validate paint ID
@@ -190,7 +186,7 @@ export async function DELETE(
             message: result.error.message
           }
         },
-        { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
+        { headers: addNoCacheHeaders(), status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
       );
     }
 
@@ -203,10 +199,10 @@ export async function DELETE(
       meta: {
         deleted_at: new Date().toISOString()
       }
-    });
+    }, { headers: addNoCacheHeaders() });
 
   } catch (error) {
-    console.error('DELETE /api/paints/[id] error:', error);
+    logger.error({ error, route: 'DELETE /api/paints/[id]' }, 'API error');
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -214,23 +210,23 @@ export async function DELETE(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid paint ID',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }

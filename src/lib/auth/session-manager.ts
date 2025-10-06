@@ -64,7 +64,7 @@ export function parseSessionToken(token: string): SessionData | null {
 
     return decoded as SessionData
   } catch (error) {
-    console.error('Token parsing error:', error)
+    logger.error('Token parsing error:', error)
     return null
   }
 }
@@ -328,7 +328,7 @@ export function extractSessionFromCookie(cookieHeader: string): SessionData | nu
     const decoded = Buffer.from(token, 'base64').toString('utf-8')
     return JSON.parse(decoded) as SessionData
   } catch (error) {
-    console.error('Extract session from cookie error:', error)
+    logger.error('Extract session from cookie error:', error)
     return null
   }
 }

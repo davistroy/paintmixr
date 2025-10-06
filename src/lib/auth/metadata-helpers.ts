@@ -57,7 +57,7 @@ export const LOCKOUT_DURATION_MINUTES = 15
  * ```typescript
  * const { data: { user } } = await adminClient.auth.admin.getUserById(userId)
  * const metadata = getLockoutMetadata(user)
- * console.log(metadata.failed_login_attempts) // 0 if new user
+ * logger.info(metadata.failed_login_attempts) // 0 if new user
  * ```
  */
 export function getLockoutMetadata(user: UserWithMetadata): LockoutMetadata {
@@ -167,7 +167,7 @@ export function isUserLockedOut(metadata: LockoutMetadata): {
  * ```typescript
  * const { newCount, lockoutUntil } = await incrementFailedAttempts(userId, adminClient)
  * if (lockoutUntil) {
- *   console.log(`Account locked until ${lockoutUntil}`)
+ *   logger.info(`Account locked until ${lockoutUntil}`)
  * }
  * ```
  */

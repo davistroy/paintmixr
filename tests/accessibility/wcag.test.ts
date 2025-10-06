@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 // import { ColorWheel } from '@/components/ui/color-wheel'
 // import { ColorSwatch } from '@/components/ui/color-swatch'
 // import { MixingResults } from '@/components/ui/mixing-results'
-// import type { ColorValue, MixingFormula } from '@/types/types'
+// import type { ColorValue, MixingFormula } from '@/lib/types'
 
 // Add jest-axe matcher
 // expect.extend(toHaveNoViolations)

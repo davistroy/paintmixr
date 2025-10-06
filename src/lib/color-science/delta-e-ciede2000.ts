@@ -9,7 +9,7 @@
  * colour-difference evaluation" with optimizations for paint mixing applications.
  */
 
-import { LABColor } from '../../types/mixing';
+import { LABColor } from '@/lib/types';
 
 // CIEDE2000 calculation constants
 export const CIEDE2000_CONSTANTS = {

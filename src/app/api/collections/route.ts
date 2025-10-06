@@ -4,9 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/route-handler';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/database/database.types';
+import { logger } from '@/lib/logging/logger';
+import { addCacheHeaders, addNoCacheHeaders } from '@/lib/contracts/api-headers';
 
 const QueryParamsSchema = z.object({
   page: z.coerce.number().min(1).default(1),
@@ -38,7 +42,7 @@ const PaintCollectionUpdateSchema = z.object({
   archived: z.boolean().optional()
 });
 
-async function getCurrentUser(supabase: any) {
+async function getCurrentUser(supabase: SupabaseClient<Database>) {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) {
     throw new Error('Unauthorized');
@@ -48,7 +52,7 @@ async function getCurrentUser(supabase: any) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     // Parse query parameters
@@ -57,7 +61,7 @@ export async function GET(request: NextRequest) {
     const parsedParams = QueryParamsSchema.parse(queryParams);
 
     // Build filters
-    const filters: any = {
+    const filters: Record<string, unknown> = {
       archived: parsedParams.archived
     };
 
@@ -95,7 +99,7 @@ export async function GET(request: NextRequest) {
             message: result.error.message
           }
         },
-        { status: 500 }
+        { headers: addCacheHeaders(), status: 500 }
       );
     }
 
@@ -122,10 +126,10 @@ export async function GET(request: NextRequest) {
         filters_applied: Object.keys(filters).filter(key => filters[key] !== undefined).length,
         query_timestamp: new Date().toISOString()
       }
-    });
+    }, { headers: addCacheHeaders() });
 
   } catch (error) {
-    console.error('GET /api/collections error:', error);
+    logger.error('GET /api/collections error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -133,30 +137,30 @@ export async function GET(request: NextRequest) {
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid query parameters',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addCacheHeaders(), status: 500 }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     const body = await request.json();
@@ -180,7 +184,7 @@ export async function POST(request: NextRequest) {
               message: 'A default collection already exists. Please update the existing one or create a non-default collection.'
             }
           },
-          { status: 409 }
+          { headers: addNoCacheHeaders(), status: 409 }
         );
       }
     }
@@ -200,7 +204,7 @@ export async function POST(request: NextRequest) {
             message: 'A collection with this name already exists'
           }
         },
-        { status: 409 }
+        { headers: addNoCacheHeaders(), status: 409 }
       );
     }
 
@@ -224,7 +228,7 @@ export async function POST(request: NextRequest) {
             message: result.error.message
           }
         },
-        { status: 500 }
+        { headers: addNoCacheHeaders(), status: 500 }
       );
     }
 
@@ -236,11 +240,11 @@ export async function POST(request: NextRequest) {
           collection_id: result.data?.id
         }
       },
-      { status: 201 }
+      { headers: addNoCacheHeaders(), status: 201 }
     );
 
   } catch (error) {
-    console.error('POST /api/collections error:', error);
+    logger.error('POST /api/collections error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -248,23 +252,23 @@ export async function POST(request: NextRequest) {
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid collection data',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }
@@ -272,7 +276,7 @@ export async function POST(request: NextRequest) {
 // Bulk operations for collections
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     const body = await request.json();
@@ -281,14 +285,14 @@ export async function PUT(request: NextRequest) {
     if (!Array.isArray(collection_ids) || collection_ids.length === 0) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: 'collection_ids array is required' } },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (collection_ids.length > 20) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: 'Maximum 20 collections can be updated at once' } },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
@@ -297,7 +301,7 @@ export async function PUT(request: NextRequest) {
     if (!collection_ids.every((id: string) => uuidRegex.test(id))) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: 'Invalid collection ID format' } },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
@@ -306,33 +310,37 @@ export async function PUT(request: NextRequest) {
     let result;
 
     switch (operation) {
-      case 'archive':
+      case 'archive': {
         result = await repository.bulkArchiveCollections(collection_ids, user.id);
         break;
+      }
 
-      case 'restore':
+      case 'restore': {
         result = await repository.bulkRestoreCollections(collection_ids, user.id);
         break;
+      }
 
-      case 'update':
+      case 'update': {
         if (!updates) {
           return NextResponse.json(
             { error: { code: 'VALIDATION_ERROR', message: 'Updates object required for update operation' } },
-            { status: 400 }
+            { headers: addNoCacheHeaders(), status: 400 }
           );
         }
         const validatedUpdates = PaintCollectionUpdateSchema.parse(updates);
         result = await repository.bulkUpdateCollections(collection_ids, user.id, validatedUpdates);
         break;
+      }
 
-      case 'delete':
+      case 'delete': {
         result = await repository.bulkDeleteCollections(collection_ids, user.id);
         break;
+      }
 
       default:
         return NextResponse.json(
           { error: { code: 'INVALID_OPERATION', message: 'Operation must be one of: archive, restore, update, delete' } },
-          { status: 400 }
+          { headers: addNoCacheHeaders(), status: 400 }
         );
     }
 
@@ -344,7 +352,7 @@ export async function PUT(request: NextRequest) {
             message: result.error.message
           }
         },
-        { status: 500 }
+        { headers: addNoCacheHeaders(), status: 500 }
       );
     }
 
@@ -355,10 +363,10 @@ export async function PUT(request: NextRequest) {
         affected_count: result.data?.length || 0,
         processed_at: new Date().toISOString()
       }
-    });
+    }, { headers: addNoCacheHeaders() });
 
   } catch (error) {
-    console.error('PUT /api/collections error:', error);
+    logger.error('PUT /api/collections error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -366,23 +374,23 @@ export async function PUT(request: NextRequest) {
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid bulk operation data',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }
@@ -390,6 +398,6 @@ export async function PUT(request: NextRequest) {
 export async function DELETE() {
   return NextResponse.json(
     { error: { code: 'METHOD_NOT_ALLOWED', message: 'Use DELETE /api/collections/[id] for individual collection deletion' } },
-    { status: 405 }
+    { headers: addNoCacheHeaders(), status: 405 }
   );
 }

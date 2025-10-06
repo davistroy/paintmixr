@@ -3,7 +3,7 @@ import { calculateKubelkaMunkMixing } from '@/lib/kubelka-munk'
 import { calculateDeltaE2000 as calculateDeltaE } from '@/lib/color-science'
 import { rgbToLab as convertRgbToLab, labToRgb as convertLabToRgb } from '@/lib/color-science'
 import { performanceMonitor } from '@/lib/utils/performance'
-import type { ColorValue, PaintData } from '@/types/types'
+import type { ColorValue, PaintData } from '@/lib/types'
 
 describe('Color Calculation Performance Tests', () => {
   // Extended paint database for performance testing

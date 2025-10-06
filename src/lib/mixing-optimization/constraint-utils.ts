@@ -7,7 +7,7 @@
  * These are simplified versions used by tests and UI components.
  */
 
-import type { VolumeConstraints } from '@/types/mixing'
+import type { VolumeConstraints } from '@/lib/types'
 
 export interface ValidationResult {
   valid: boolean

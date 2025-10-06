@@ -9,7 +9,7 @@
  * precision for milliliter-accurate paint mixing calculations.
  */
 
-import { LABColor } from '../../types/mixing';
+import { LABColor } from '@/lib/types';
 
 // Enhanced LAB color space constants with high precision
 export const LAB_CONSTANTS = {

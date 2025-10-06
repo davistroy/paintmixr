@@ -1,12 +1,12 @@
 {
-  "timestamp": "2025-10-05T12:45:37.924Z",
+  "timestamp": "2025-10-05T23:53:33.823Z",
   "metrics": {
-    "totalComponents": 39,
-    "totalCodeLines": 6510,
-    "averageSize": 166.92307692307693,
+    "totalComponents": 46,
+    "totalCodeLines": 7106,
+    "averageSize": 154.47826086956522,
     "largestComponent": "src/components/optimization/optimization-results-old.tsx",
     "largestSize": 497,
-    "smallestComponent": "src/components/auth/SessionExpiredMessage.tsx",
-    "smallestSize": 15
+    "smallestComponent": "src/components/DebugConsoleWrapper.tsx",
+    "smallestSize": 4
   }
 }

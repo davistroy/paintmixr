@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { RatioPredictRequest, RatioPredictResponse } from '@/types/types'
+import { RatioPredictRequest, RatioPredictResponse } from '@/lib/types'
 
 // Import the actual API route handler (this will fail initially)
 // import { POST } from '@/app/api/ratio-predict/route'

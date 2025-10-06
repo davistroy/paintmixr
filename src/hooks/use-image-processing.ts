@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import type { ColorValue, ImageColorExtractionRequest, ImageColorExtractionResponse } from '@/types/types'
+import type { ColorValue, ImageColorExtractionRequest, ImageColorExtractionResponse } from '@/lib/types'
 
 interface UseImageProcessingState {
   isProcessing: boolean

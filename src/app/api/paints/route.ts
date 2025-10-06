@@ -9,6 +9,8 @@ import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-pa
 import { EnhancedPaintCreateSchema } from '@/lib/database/models/enhanced-paint';
 import { PaintFilters, PaginationOptions } from '@/lib/database/database.types';
 import { z } from 'zod';
+import { logger } from '@/lib/logging/logger';
+import { addCacheHeaders, addNoCacheHeaders } from '@/lib/contracts/api-headers';
 
 const QueryParamsSchema = z.object({
   page: z.coerce.number().min(1).default(1),
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
             message: result.error.message
           }
         },
-        { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
+        { headers: addCacheHeaders(), status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
       );
     }
 
@@ -93,10 +95,10 @@ export async function GET(request: NextRequest) {
         filters_applied: Object.keys(filters).filter(key => filters[key as keyof PaintFilters] !== undefined).length,
         cache_timestamp: new Date().toISOString()
       }
-    });
+    }, { headers: addCacheHeaders() });
 
   } catch (error) {
-    console.error('GET /api/paints error:', error);
+    logger.error('GET /api/paints error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -104,23 +106,23 @@ export async function GET(request: NextRequest) {
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid query parameters',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addCacheHeaders(), status: 500 }
     );
   }
 }
@@ -148,7 +150,7 @@ export async function POST(request: NextRequest) {
             message: result.error.message
           }
         },
-        { status: result.error.code === 'VALIDATION_ERROR' ? 400 : 500 }
+        { headers: addNoCacheHeaders(), status: result.error.code === 'VALIDATION_ERROR' ? 400 : 500 }
       );
     }
 
@@ -160,11 +162,11 @@ export async function POST(request: NextRequest) {
           version: result.data?.version
         }
       },
-      { status: 201 }
+      { headers: addNoCacheHeaders(), status: 201 }
     );
 
   } catch (error) {
-    console.error('POST /api/paints error:', error);
+    logger.error('POST /api/paints error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -172,23 +174,23 @@ export async function POST(request: NextRequest) {
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid paint data',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }
@@ -204,14 +206,14 @@ export async function PUT(request: NextRequest) {
     if (!Array.isArray(paint_ids) || paint_ids.length === 0) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: 'paint_ids array is required' } },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (paint_ids.length > 50) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: 'Maximum 50 paints can be updated at once' } },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
@@ -220,7 +222,7 @@ export async function PUT(request: NextRequest) {
     if (!paint_ids.every((id: string) => uuidRegex.test(id))) {
       return NextResponse.json(
         { error: { code: 'VALIDATION_ERROR', message: 'Invalid paint ID format' } },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
@@ -235,7 +237,7 @@ export async function PUT(request: NextRequest) {
             message: result.error.message
           }
         },
-        { status: 500 }
+        { headers: addNoCacheHeaders(), status: 500 }
       );
     }
 
@@ -245,21 +247,21 @@ export async function PUT(request: NextRequest) {
         updated_count: result.data?.length || 0,
         updated_at: new Date().toISOString()
       }
-    });
+    }, { headers: addNoCacheHeaders() });
 
   } catch (error) {
-    console.error('PUT /api/paints error:', error);
+    logger.error('PUT /api/paints error:', error);
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }
@@ -267,6 +269,6 @@ export async function PUT(request: NextRequest) {
 export async function DELETE() {
   return NextResponse.json(
     { error: { code: 'METHOD_NOT_ALLOWED', message: 'Use DELETE /api/paints/[id] for individual paint deletion' } },
-    { status: 405 }
+    { headers: addNoCacheHeaders(), status: 405 }
   );
 }

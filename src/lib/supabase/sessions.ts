@@ -13,7 +13,7 @@ import type {
   SessionListParams,
   MixingFormula,
   ColorValue,
-} from '@/types/types'
+} from '@/lib/types'
 
 /**
  * Get current user from route handler client

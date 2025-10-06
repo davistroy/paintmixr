@@ -10,7 +10,7 @@ export const debugLogEntrySchema = z.object({
   level: z.enum(['info', 'warn', 'error', 'debug']),
   category: z.enum(['api', 'user', 'state', 'error']),
   message: z.string().min(1).max(500),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 export type DebugLogEntry = z.infer<typeof debugLogEntrySchema>

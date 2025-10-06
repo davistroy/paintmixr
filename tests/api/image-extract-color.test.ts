@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { ImageExtractColorRequest, ImageExtractColorResponse } from '@/types/types'
+import { ImageExtractColorRequest, ImageExtractColorResponse } from '@/lib/types'
 
 // Import the actual API route handler (this will fail initially)
 // import { POST } from '@/app/api/image/extract-color/route'

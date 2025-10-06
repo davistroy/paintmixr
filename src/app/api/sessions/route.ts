@@ -8,8 +8,9 @@ import { z } from 'zod'
 import type {
   SessionListResponse,
   ErrorResponse,
-} from '@/types/types'
+} from '@/lib/types'
 import { SessionService } from '@/lib/supabase/sessions'
+import { logger } from '@/lib/logging/logger'
 
 const SessionListQuerySchema = z.object({
   limit: z.string().nullable().optional().transform(val => val ? parseInt(val, 10) : 20),
@@ -138,13 +139,13 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Sessions list error:', error)
+    logger.error({ err: error }, 'Sessions list error')
 
     if (error instanceof z.ZodError) {
       const errorResponse: ErrorResponse = {
         error: 'VALIDATION_ERROR',
         message: 'Invalid query parameters',
-        details: error.errors,
+        details: error.issues,
       }
       return NextResponse.json(errorResponse, { status: 400 })
     }
@@ -232,13 +233,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(session, { status: 201 })
 
   } catch (error) {
-    console.error('Session creation error:', error)
+    logger.error({ err: error }, 'Session creation error')
 
     if (error instanceof z.ZodError) {
       const errorResponse: ErrorResponse = {
         error: 'VALIDATION_ERROR',
         message: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
       }
       return NextResponse.json(errorResponse, { status: 400 })
     }

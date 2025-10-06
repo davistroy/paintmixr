@@ -104,7 +104,7 @@ export const enhancedOptimizationRequestSchema = z.object({
     .min(2, 'At least 2 paints required for optimization')
     .max(100, 'Maximum 100 paints allowed for optimization'),
   mode: z.enum(['standard', 'enhanced'], {
-    errorMap: () => ({ message: 'mode must be "standard" or "enhanced"' })
+    message: 'mode must be "standard" or "enhanced"'
   }),
   volumeConstraints: volumeConstraintsSchema.optional(),
   maxPaintCount: z.number()

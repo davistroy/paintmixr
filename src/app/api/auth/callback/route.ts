@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { serverExchangeCodeForSession } from '@/lib/supabase/route-handler'
+import { logger } from '@/lib/logging/logger';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   // Handle OAuth errors
   if (error) {
-    console.error('OAuth error:', error, errorDescription)
+    logger.error({ error, errorDescription }, 'OAuth error')
 
     // Redirect to error page with error details
     const errorUrl = new URL('/auth/error', requestUrl.origin)
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   // Validate authorization code
   if (!code) {
-    console.error('Missing authorization code in callback')
+    logger.error('Missing authorization code in callback')
 
     const errorUrl = new URL('/auth/error', requestUrl.origin)
     errorUrl.searchParams.set('error', 'invalid_request')
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
       await serverExchangeCodeForSession(code)
 
     if (exchangeError || !session) {
-      console.error('Failed to exchange code for session:', exchangeError)
+      logger.error({ err: exchangeError }, 'Failed to exchange code for session')
 
       const errorUrl = new URL('/auth/error', requestUrl.origin)
       errorUrl.searchParams.set('error', 'oauth_failed')
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Successful authentication
-    console.log('OAuth callback successful for user:', session.user.id)
+    logger.info({ userId: session.user.id }, 'OAuth callback successful for user')
 
     // Determine redirect destination
     let destination = redirectTo || '/'
@@ -79,12 +80,12 @@ export async function GET(request: NextRequest) {
 
       // Only allow redirects to same origin
       if (redirectUrl.origin !== requestUrl.origin) {
-        console.warn('Attempted open redirect:', destination)
+        logger.warn({ destination }, 'Attempted open redirect')
         destination = '/'
       } else {
         destination = redirectUrl.pathname + redirectUrl.search
       }
-    } catch (e) {
+    } catch {
       // Invalid URL, default to home
       destination = '/'
     }
@@ -94,7 +95,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(redirectUrl)
   } catch (error) {
-    console.error('Unexpected error in OAuth callback:', error)
+    logger.error({ err: error }, 'Unexpected error in OAuth callback')
 
     const errorUrl = new URL('/auth/error', requestUrl.origin)
     errorUrl.searchParams.set('error', 'server_error')

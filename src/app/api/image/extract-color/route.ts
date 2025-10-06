@@ -9,8 +9,9 @@ import type {
   ImageColorExtractionResponse,
   ErrorResponse,
   ColorValue,
-} from '@/types/types'
+} from '@/lib/types'
 import { hexToLab } from '@/lib/color-science'
+import { logger } from '@/lib/logging/logger';
 
 // Request validation schema
 const ImageColorExtractionRequestSchema = z.object({
@@ -205,13 +206,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error('Image color extraction error:', error)
+    logger.error('Image color extraction error:', error)
 
     if (error instanceof z.ZodError) {
       const errorResponse: ErrorResponse = {
         error: 'VALIDATION_ERROR',
         message: 'Invalid request data',
-        details: error.errors,
+        details: error.issues,
       }
       return NextResponse.json(errorResponse, { status: 400 })
     }

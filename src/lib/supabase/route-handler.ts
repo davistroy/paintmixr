@@ -15,7 +15,8 @@
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import type { Database } from '@/types/types'
+import type { Database } from '@/lib/types'
+import { logger } from '@/lib/logging/logger';
 
 /**
  * Create Supabase client for API route handlers
@@ -61,7 +62,7 @@ export async function serverExchangeCodeForSession(code: string) {
   } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {
-    console.error('Server exchange code error:', error)
+    logger.error('Server exchange code error:', error)
     return { session: null, error }
   }
 
@@ -78,7 +79,7 @@ export async function serverSignOut() {
   const { error } = await supabase.auth.signOut()
 
   if (error) {
-    console.error('Server sign-out error:', error)
+    logger.error('Server sign-out error:', error)
     return { success: false, error }
   }
 

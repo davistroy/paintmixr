@@ -188,11 +188,6 @@ export function useCollectionManager({
       // Refresh collections list
       await loadCollections();
 
-      // Notify parent of update
-      if (editingCollection && response.data?.data) {
-        () => {};
-      }
-
       return response.data?.data;
     } catch (error) {
       setState((prev) => ({

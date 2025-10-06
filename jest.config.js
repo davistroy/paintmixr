@@ -41,6 +41,12 @@ const customJestConfig = {
       statements: 80,
     },
   },
+  // T047: Extended timeout for coverage runs and slow tests
+  testTimeout: 120000, // 2 minutes (up from default 5s)
+  // Detect open handles that prevent Jest from exiting
+  detectOpenHandles: true,
+  // Force exit after all tests complete (fallback)
+  forceExit: false, // Set to true only if detectOpenHandles doesn't help
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

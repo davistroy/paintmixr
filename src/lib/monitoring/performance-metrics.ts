@@ -3,7 +3,8 @@
  * Tracks optimization performance, accuracy metrics, and system health
  */
 
-import { ColorOptimizationResult as OptimizationResult } from '@/types/mixing';
+import { ColorOptimizationResult as OptimizationResult } from '@/lib/types';
+import { logger } from '@/lib/logging/logger';
 
 export interface PerformanceMetrics {
   optimization_id: string;
@@ -276,11 +277,11 @@ export class PerformanceMetricsCollector {
   private detectPerformanceAnomalies(metrics: PerformanceMetrics) {
     // Real-time anomaly detection logic
     if (metrics.calculation_time_ms > 5000) {
-      console.warn(`Performance anomaly detected: ${metrics.optimization_id} took ${metrics.calculation_time_ms}ms`);
+      logger.warn(`Performance anomaly detected: ${metrics.optimization_id} took ${metrics.calculation_time_ms}ms`);
     }
 
     if (metrics.achieved_delta_e > metrics.target_delta_e * 2) {
-      console.warn(`Accuracy anomaly detected: ${metrics.optimization_id} achieved ${metrics.achieved_delta_e} vs target ${metrics.target_delta_e}`);
+      logger.warn(`Accuracy anomaly detected: ${metrics.optimization_id} achieved ${metrics.achieved_delta_e} vs target ${metrics.target_delta_e}`);
     }
   }
 
@@ -319,7 +320,7 @@ export class PerformanceMetricsCollector {
 
     try {
       // In production, this would send to analytics service
-      console.log(`Flushing ${metricsToFlush.length} performance metrics`);
+      logger.info(`Flushing ${metricsToFlush.length} performance metrics`);
 
       // Could integrate with services like:
       // - DataDog, New Relic, or Grafana for metrics
@@ -327,7 +328,7 @@ export class PerformanceMetricsCollector {
       // - Database for historical analysis
 
     } catch (error) {
-      console.error('Failed to flush metrics:', error);
+      logger.error('Failed to flush metrics:', error);
       // Re-add metrics to buffer for retry
       this.metricsBuffer.unshift(...metricsToFlush);
     }
@@ -382,22 +383,22 @@ export class OptimizationTracker {
       user_id: this.userId,
       timestamp: new Date(),
       calculation_time_ms: totalTime,
-      algorithm_used: result.optimization_metadata.algorithm_used as any || 'auto',
-      iterations_completed: result.optimization_metadata.iterations_performed || 0,
-      convergence_achieved: result.optimization_metadata.convergence_achieved,
+      algorithm_used: (result.optimization_metadata as any)?.algorithm_used || 'auto',
+      iterations_completed: result.optimization_metadata?.performance_metrics?.iterations_completed || 0,
+      convergence_achieved: result.optimization_metadata?.performance_metrics?.convergence_achieved || false,
       target_delta_e: result.formula.target_delta_e || 2.0,
-      achieved_delta_e: result.formula.achieved_delta_e,
-      accuracy_target_met: result.formula.achieved_delta_e <= (result.formula.target_delta_e || 2.0),
-      color_space_coverage: result.optimization_metadata.color_space_coverage || 0.8,
+      achieved_delta_e: result.formula.achieved_delta_e || result.formula.deltaE,
+      accuracy_target_met: (result.formula.achieved_delta_e || result.formula.deltaE) <= (result.formula.target_delta_e || 2.0),
+      color_space_coverage: (result.optimization_metadata as any)?.color_space_coverage || 0.8,
       memory_usage_mb: Math.max(...this.resourceSnapshots.map(s => s.memory)),
       worker_thread_count: 1, // Would be tracked from actual worker usage
       paints_evaluated: this.availablePaintsCount,
-      paints_selected: result.formula.paint_components.length,
+      paints_selected: result.formula.paint_components?.length || result.formula.paintRatios.length,
       collection_size: this.availablePaintsCount,
       verified_paints_ratio: 0.7, // Would be calculated from actual data
       calibrated_paints_ratio: 0.4,
       solution_stability_score: 0.85, // Would be calculated from multiple runs
-      color_mixing_complexity: result.formula.paint_components.length,
+      color_mixing_complexity: result.formula.paint_components?.length || result.formula.paintRatios.length,
       volume_efficiency: 0.9, // Would be calculated from actual data
       cost_efficiency: 0.8, // Would be calculated from actual data
       concurrent_optimizations: 1, // Would be tracked globally

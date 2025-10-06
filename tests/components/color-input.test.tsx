@@ -5,7 +5,7 @@ import { ColorPicker } from '@/components/ui/color-picker'
 import { ImageUpload } from '@/components/ui/image-upload'
 import { ColorWheel } from '@/components/ui/color-wheel'
 import { ColorSwatch } from '@/components/ui/color-swatch'
-import type { ColorValue } from '@/types/types'
+import type { ColorValue } from '@/lib/types'
 
 // Mock dependencies
 jest.mock('@/hooks/use-image-processing', () => ({

@@ -23,6 +23,7 @@ import {
   PAINT_COLLECTION_TABLE
 } from '../models/enhanced-paint';
 import { calculateCIEDE2000 } from '@/lib/color-science/delta-e-ciede2000';
+import { logger } from '@/lib/logging/logger';
 
 export class EnhancedPaintRepository {
   constructor(private supabase: SupabaseClient<Database>) {}
@@ -1052,7 +1053,7 @@ export class EnhancedPaintRepository {
           .eq('id', collectionId);
       }
     } catch (error) {
-      console.error('Failed to update collection stats:', error);
+      logger.error('Failed to update collection stats:', error);
     }
   }
 

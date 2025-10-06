@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useRef, useCallback } from 'react'
+import Image from 'next/image'
 import type { ColorValue } from '@/lib/types'
-import type { ImageColorExtractionResponse } from '@/types/types'
+import type { ImageColorExtractionResponse } from '@/lib/types'
 import { apiPost } from '@/lib/api/client'
 
 interface ImageUploadProps {
@@ -78,7 +79,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     return response.data.extracted_color
   }
 
-  const processFile = async (file: File) => {
+  const processFile = useCallback(async (file: File) => {
     if (!validateFile(file)) return
 
     setIsProcessing(true)
@@ -98,7 +99,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     } finally {
       setIsProcessing(false)
     }
-  }
+  }, [extractionMethod, onColorExtracted])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -115,7 +116,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     if (file) {
       processFile(file)
     }
-  }, [])
+  }, [processFile])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -248,12 +249,14 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           </div>
         ) : (
           <div className="text-center">
-            <img
-              ref={imageRef}
+            <Image
+              ref={imageRef as any}
               src={uploadedImage}
-              alt="Uploaded"
+              alt="Uploaded image for color extraction"
+              width={800}
+              height={600}
               className={`
-                max-w-full max-h-64 mx-auto rounded border
+                max-w-full max-h-64 mx-auto rounded border object-contain
                 ${extractionMethod === 'point' ? 'cursor-crosshair' : 'cursor-default'}
               `}
               onClick={handleImageClick}

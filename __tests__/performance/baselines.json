@@ -1,0 +1,64 @@
+{
+  "api": {
+    "description": "API endpoint response times (95th and 99th percentile)",
+    "p95_ms": 200,
+    "p99_ms": 500,
+    "routes": {
+      "/api/paints": {
+        "GET": { "p95_ms": 150, "p99_ms": 300 },
+        "POST": { "p95_ms": 100, "p99_ms": 200 }
+      },
+      "/api/optimize": {
+        "POST": { "p95_ms": 5000, "p99_ms": 10000 }
+      },
+      "/api/sessions": {
+        "GET": { "p95_ms": 200, "p99_ms": 400 }
+      }
+    }
+  },
+  "database": {
+    "description": "Database query execution times (95th and 99th percentile)",
+    "p95_ms": 100,
+    "p99_ms": 250,
+    "operations": {
+      "getUserPaints": { "p95_ms": 80, "p99_ms": 150 },
+      "createPaint": { "p95_ms": 50, "p99_ms": 100 },
+      "updatePaint": { "p95_ms": 50, "p99_ms": 100 },
+      "getUserCollections": { "p95_ms": 100, "p99_ms": 200 }
+    }
+  },
+  "color_calculation": {
+    "description": "Color mixing calculation times (95th and 99th percentile)",
+    "p95_ms": 50,
+    "p99_ms": 150,
+    "algorithms": {
+      "differential_evolution": { "p95_ms": 2000, "p99_ms": 5000 },
+      "tpe_hybrid": { "p95_ms": 3000, "p99_ms": 8000 },
+      "standard_mixing": { "p95_ms": 20, "p99_ms": 50 }
+    }
+  },
+  "lighthouse": {
+    "description": "Lighthouse performance scores (minimum thresholds)",
+    "performance": 90,
+    "accessibility": 90,
+    "best_practices": 90,
+    "seo": 90
+  },
+  "bundle_size": {
+    "description": "JavaScript bundle size limits (in KB)",
+    "max_total_kb": 500,
+    "max_initial_chunk_kb": 200,
+    "routes": {
+      "/": { "max_kb": 150 },
+      "/dashboard": { "max_kb": 200 },
+      "/optimize": { "max_kb": 180 }
+    }
+  },
+  "memory": {
+    "description": "Memory usage thresholds (in MB)",
+    "max_heap_mb": 512,
+    "max_rss_mb": 1024
+  },
+  "last_updated": "2025-10-05",
+  "version": "1.0.0"
+}

@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   // Note: TypeScript types don't include 'filter' parameter, but it's supported by Supabase API
   const { data: users } = await adminClient.auth.admin.listUsers({
     filter: `email.eq.${normalizedEmail}`
-  } as any)
+  } as { filter: string })
 
   const user = users.users[0]
 

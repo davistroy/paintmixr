@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LABColor } from '@/lib/color-science/types';
 import { hexToLab, rgbToLab } from '@/lib/color-science';
+import { logger } from '@/lib/logging/logger';
 
 interface LegacyColorRequest {
   target_color_hex?: string;
@@ -158,7 +159,7 @@ export class AccuracyComparisonMiddleware {
       return response;
 
     } catch (error) {
-      console.error('Accuracy comparison middleware error:', error);
+      logger.error('Accuracy comparison middleware error:', error);
 
       // Add error information but don't block the request
       response.headers.set('X-Accuracy-Middleware-Error', 'true');

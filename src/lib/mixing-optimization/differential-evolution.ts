@@ -21,7 +21,7 @@ import {
   LABColor,
   OptimizationPaint,
   ColorOptimizationResult
-} from '../../types/mixing';
+} from '@/lib/types';
 
 // TODO: Define these types properly
 type OptimizationConstraints = any;
@@ -578,8 +578,8 @@ export class DifferentialEvolutionOptimizer {
   private evaluateFitness(variables: number[]): number {
     try {
       // Calculate mixed color
-      const colors = this.availablePaints.map(paint => paint.color_space);
-      const mixedColor = mixLABColors(colors, variables);
+      const colors = this.availablePaints.map(paint => paint.color_space || paint.lab);
+      const mixedColor = mixLABColors(colors.filter((c): c is LABColor => c !== undefined), variables);
 
       // Calculate Delta E
       const deltaE = calculateCIEDE2000(this.targetColor, mixedColor).delta_e;
@@ -588,13 +588,13 @@ export class DifferentialEvolutionOptimizer {
       let costPenalty = 0;
       if (this.objective.cost_weight > 0) {
         const totalCost = this.availablePaints.reduce((sum, paint, i) =>
-          sum + paint.cost_per_ml * variables[i] * this.constraints.volume_constraints.min_total_volume_ml, 0);
+          sum + (paint.cost_per_ml || 0) * variables[i] * this.constraints.volume_constraints.min_total_volume_ml, 0);
         costPenalty = this.objective.cost_weight * totalCost;
       }
 
       return deltaE + costPenalty;
 
-    } catch (error) {
+    } catch {
       return Number.MAX_VALUE; // Invalid solution
     }
   }
@@ -622,7 +622,7 @@ export class DifferentialEvolutionOptimizer {
     for (let i = 0; i < this.availablePaints.length; i++) {
       const requiredVolume = variables[i] * totalVolume;
       const availableVolume = this.availablePaints[i].available_volume_ml;
-      if (requiredVolume > availableVolume) {
+      if (availableVolume !== undefined && requiredVolume > availableVolume) {
         violation += (requiredVolume - availableVolume) * DE_CONSTANTS.PENALTY_FACTOR;
       }
     }
@@ -724,8 +724,8 @@ export class DifferentialEvolutionOptimizer {
 
   // Create final optimization result
   private createOptimizationResult(bestIndividual: DEIndividual): OptimizationResult {
-    const colors = this.availablePaints.map(paint => paint.color_space);
-    const mixedColor = mixLABColors(colors, bestIndividual.variables);
+    const colors = this.availablePaints.map(paint => paint.color_space || paint.lab);
+    const mixedColor = mixLABColors(colors.filter((c): c is LABColor => c !== undefined), bestIndividual.variables);
     const deltaE = calculateCIEDE2000(this.targetColor, mixedColor);
 
     return {
@@ -750,7 +750,7 @@ export class DifferentialEvolutionOptimizer {
   private calculateCost(variables: number[]): number {
     const totalVolume = this.constraints.volume_constraints.min_total_volume_ml;
     return this.availablePaints.reduce((sum, paint, i) =>
-      sum + paint.cost_per_ml * variables[i] * totalVolume, 0);
+      sum + (paint.cost_per_ml || 0) * variables[i] * totalVolume, 0);
   }
 
   // Create seeded random number generator
@@ -815,8 +815,8 @@ export const optimizeWithDE = (
  *   accuracyTarget: 2.0
  * });
  *
- * console.log(result.formula.deltaE); // Delta E ≤ 2.0
- * console.log(result.metrics.convergenceAchieved); // true/false
+ * logger.info(result.formula.deltaE); // Delta E ≤ 2.0
+ * logger.info(result.metrics.convergenceAchieved); // true/false
  * ```
  */
 export async function optimizeWithDifferentialEvolution(
@@ -843,7 +843,11 @@ export async function optimizeWithDifferentialEvolution(
     id: paint.id,
     name: paint.name,
     brand: paint.brand,
+    lab: paint.color.lab,
     color_space: paint.color.lab,
+    k_coefficient: paint.kubelkaMunk.k,
+    s_coefficient: paint.kubelkaMunk.s,
+    tinting_strength: paint.tintingStrength,
     available_volume_ml: 1000, // Assume unlimited for now
     cost_per_ml: 0.1, // Placeholder cost
     opacity: paint.opacity,

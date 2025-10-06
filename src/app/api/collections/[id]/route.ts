@@ -4,9 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/route-handler';
 import { EnhancedPaintRepository } from '@/lib/database/repositories/enhanced-paint-repository';
 import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/database/database.types';
+import { logger } from '@/lib/logging/logger';
+import { addCacheHeaders, addNoCacheHeaders } from '@/lib/contracts/api-headers';
 
 const PaintCollectionUpdateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -18,7 +22,7 @@ const PaintCollectionUpdateSchema = z.object({
 
 const CollectionIdSchema = z.string().uuid('Invalid collection ID format');
 
-async function getCurrentUser(supabase: any) {
+async function getCurrentUser(supabase: SupabaseClient<Database>) {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) {
     throw new Error('Unauthorized');
@@ -26,12 +30,10 @@ async function getCurrentUser(supabase: any) {
   return user;
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     // Validate collection ID
@@ -48,14 +50,14 @@ export async function GET(
             message: result.error.message
           }
         },
-        { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
+        { headers: addCacheHeaders(), status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
       );
     }
 
     if (!result.data) {
       return NextResponse.json(
         { error: { code: 'NOT_FOUND', message: 'Collection not found' } },
-        { status: 404 }
+        { headers: addCacheHeaders(), status: 404 }
       );
     }
 
@@ -122,10 +124,10 @@ export async function GET(
         collection_version: result.data.updated_at,
         paints_included: paints.length
       }
-    });
+    }, { headers: addCacheHeaders() });
 
   } catch (error) {
-    console.error('GET /api/collections/[id] error:', error);
+    logger.error('GET /api/collections/[id] error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -133,33 +135,31 @@ export async function GET(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid collection ID',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addCacheHeaders(), status: 500 }
     );
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     // Validate collection ID
@@ -204,7 +204,7 @@ export async function PATCH(
               message: 'A collection with this name already exists'
             }
           },
-          { status: 409 }
+          { headers: addNoCacheHeaders(), status: 409 }
         );
       }
     }
@@ -219,7 +219,7 @@ export async function PATCH(
             message: result.error.message
           }
         },
-        { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
+        { headers: addNoCacheHeaders(), status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
       );
     }
 
@@ -229,10 +229,10 @@ export async function PATCH(
         updated_at: result.data?.updated_at,
         collection_id: collectionId
       }
-    });
+    }, { headers: addNoCacheHeaders() });
 
   } catch (error) {
-    console.error('PATCH /api/collections/[id] error:', error);
+    logger.error('PATCH /api/collections/[id] error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -240,33 +240,31 @@ export async function PATCH(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid update data',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
     const user = await getCurrentUser(supabase);
 
     // Validate collection ID
@@ -283,7 +281,7 @@ export async function DELETE(
     if (collectionResult.error || !collectionResult.data) {
       return NextResponse.json(
         { error: { code: 'NOT_FOUND', message: 'Collection not found' } },
-        { status: 404 }
+        { headers: addNoCacheHeaders(), status: 404 }
       );
     }
 
@@ -296,7 +294,7 @@ export async function DELETE(
             message: 'Cannot archive default collection. Either make another collection default first, or use permanent deletion.'
           }
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
@@ -307,7 +305,7 @@ export async function DELETE(
       if (destinationResult.error || !destinationResult.data) {
         return NextResponse.json(
           { error: { code: 'INVALID_DESTINATION', message: 'Destination collection not found' } },
-          { status: 400 }
+          { headers: addNoCacheHeaders(), status: 400 }
         );
       }
 
@@ -335,7 +333,7 @@ export async function DELETE(
             message: result.error.message
           }
         },
-        { status: 500 }
+        { headers: addNoCacheHeaders(), status: 500 }
       );
     }
 
@@ -350,10 +348,10 @@ export async function DELETE(
       meta: {
         deleted_at: new Date().toISOString()
       }
-    });
+    }, { headers: addNoCacheHeaders() });
 
   } catch (error) {
-    console.error('DELETE /api/collections/[id] error:', error);
+    logger.error('DELETE /api/collections/[id] error:', error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -361,23 +359,23 @@ export async function DELETE(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid collection ID',
-            details: error.errors
+            details: error.issues
           }
         },
-        { status: 400 }
+        { headers: addNoCacheHeaders(), status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
-        { status: 401 }
+        { headers: addNoCacheHeaders(), status: 401 }
       );
     }
 
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
-      { status: 500 }
+      { headers: addNoCacheHeaders(), status: 500 }
     );
   }
 }

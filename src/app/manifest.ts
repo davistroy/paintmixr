@@ -116,6 +116,6 @@ export default function manifest(): MetadataRoute.Manifest {
           'image/gif': ['.gif'],
         },
       },
-    ] as any,
+    ] as unknown as MetadataRoute.Manifest['file_handlers'],
   }
 }

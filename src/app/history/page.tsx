@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import type { SessionData } from '@/types/types'
+import React, { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
+import type { SessionData } from '@/lib/types'
 import SessionCard from '@/components/session-manager/SessionCard'
 
 interface SessionListResponse {
@@ -22,7 +23,7 @@ const HistoryPage: React.FC = () => {
 
   const ITEMS_PER_PAGE = 12
 
-  const fetchSessions = async (page: number = 1, reset: boolean = false) => {
+  const fetchSessions = useCallback(async (page: number = 1, reset: boolean = false) => {
     setIsLoading(true)
     setError('')
 
@@ -64,11 +65,11 @@ const HistoryPage: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [sessionTypeFilter, favoritesOnly])
 
   useEffect(() => {
     fetchSessions(1, true)
-  }, [sessionTypeFilter, favoritesOnly])
+  }, [fetchSessions])
 
   const handleLoadMore = () => {
     if (!isLoading && hasNext) {
@@ -134,18 +135,18 @@ const HistoryPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <a href="/" className="flex items-center gap-3">
+              <Link href="/" className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg"></div>
                 <h1 className="text-xl font-bold text-gray-900">PaintMixr</h1>
-              </a>
+              </Link>
             </div>
             <nav className="flex items-center gap-4">
-              <a
+              <Link
                 href="/"
                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
                 New Mix
-              </a>
+              </Link>
             </nav>
           </div>
         </div>
@@ -168,7 +169,7 @@ const HistoryPage: React.FC = () => {
                 <label className="text-sm font-medium text-gray-700">Type:</label>
                 <select
                   value={sessionTypeFilter}
-                  onChange={(e) => setSessionTypeFilter(e.target.value as any)}
+                  onChange={(e) => setSessionTypeFilter(e.target.value as 'all' | 'color_matching' | 'ratio_prediction')}
                   className="px-3 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="all">All Types</option>
@@ -217,7 +218,7 @@ const HistoryPage: React.FC = () => {
               {sessions.map((session) => (
                 <SessionCard
                   key={session.id}
-                  session={session as any}
+                  session={session}
                   onFavorite={() => handleSessionAction(session.id, 'favorite')}
                   onDelete={() => handleSessionAction(session.id, 'delete')}
                   compactMode={false}
@@ -273,7 +274,7 @@ const HistoryPage: React.FC = () => {
                     : 'Start mixing colors to create your first saved session.'
                   }
                 </p>
-                <a
+                <Link
                   href="/"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
                 >
@@ -281,7 +282,7 @@ const HistoryPage: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
                   Create New Mix
-                </a>
+                </Link>
               </div>
             )}
           </div>

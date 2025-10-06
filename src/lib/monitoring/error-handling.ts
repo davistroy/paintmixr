@@ -3,9 +3,10 @@
  * Provides comprehensive error handling for optimization failures
  */
 
-import { ColorOptimizationResult as OptimizationResult } from '@/types/mixing';
+import { ColorOptimizationResult as OptimizationResult } from '@/lib/types';
 import { LABColor } from '@/lib/color-science/types';
 import { globalMetricsCollector } from './performance-metrics';
+import { logger } from '@/lib/logging/logger';
 
 export interface OptimizationError extends Error {
   code: OptimizationErrorCode;
@@ -96,7 +97,7 @@ export class OptimizationErrorHandler {
     this.recordErrorMetrics(optimizationError.code);
 
     // Log error details
-    console.error(`Optimization error [${optimizationError.code}]:`, {
+    logger.error(`Optimization error [${optimizationError.code}]:`, {
       optimization_id: context.optimization_id,
       user_id: context.user_id,
       error: optimizationError.message,
@@ -370,7 +371,7 @@ export class OptimizationErrorHandler {
 
     for (const strategy of strategies) {
       try {
-        console.log(`Attempting fallback strategy: ${strategy.name}`);
+        logger.info(`Attempting fallback strategy: ${strategy.name}`);
         const result = await strategy.execute(context);
 
         if (result) {
@@ -381,7 +382,7 @@ export class OptimizationErrorHandler {
           };
         }
       } catch (fallbackError) {
-        console.error(`Fallback strategy ${strategy.name} failed:`, fallbackError);
+        logger.error(`Fallback strategy ${strategy.name} failed:`, fallbackError);
       }
     }
 

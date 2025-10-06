@@ -336,7 +336,7 @@ export function optimizePaintRatios(
         bestDeltaE = deltaE
         bestRatios = normalizedRatios.slice()
       }
-    } catch (error) {
+    } catch {
       // Skip invalid ratio combinations
       continue
     }

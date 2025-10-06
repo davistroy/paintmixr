@@ -4,7 +4,7 @@
  */
 
 import { NextRequest } from 'next/server'
-import { PaintListResponse } from '@/types/types'
+import { PaintListResponse } from '@/lib/types'
 
 // Import the actual API route handler (this will fail initially)
 // import { GET } from '@/app/api/paints/route'

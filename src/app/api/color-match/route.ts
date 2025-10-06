@@ -10,10 +10,11 @@ import type {
   ColorMatchErrorResponse,
   ColorValue,
   MixingFormula,
-} from '@/types/types'
+} from '@/lib/types'
 import { optimizePaintRatios, mixMultiplePaints, PaintProperties } from '@/lib/kubelka-munk'
 import { deltaE2000, labToHex } from '@/lib/color-science'
 import { getUserPaints } from '@/lib/user-paints'
+import { logger } from '@/lib/logging/logger';
 
 // Use user's paint database from paint_colors.json
 const PAINT_DATABASE: PaintProperties[] = getUserPaints()
@@ -76,7 +77,7 @@ function generateAlternatives(
       }
     }
   } catch (error) {
-    console.warn('Failed to generate cost-optimized alternative:', error)
+    logger.warn('Failed to generate cost-optimized alternative:', error)
   }
 
   // Simplicity alternative (2 colors max)
@@ -101,7 +102,7 @@ function generateAlternatives(
       }
     }
   } catch (error) {
-    console.warn('Failed to generate simplified alternative:', error)
+    logger.warn('Failed to generate simplified alternative:', error)
   }
 
   // High-chroma alternative (using intense pigments)
@@ -129,7 +130,7 @@ function generateAlternatives(
       }
     }
   } catch (error) {
-    console.warn('Failed to generate high-chroma alternative:', error)
+    logger.warn('Failed to generate high-chroma alternative:', error)
   }
 
   // Sort alternatives by Delta E (best first)
@@ -143,13 +144,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     // Debug: Log the received request body BEFORE validation
-    console.log('=== DEBUG: Raw request body ===')
-    console.log('Received request body:', JSON.stringify(body, null, 2))
-    console.log('Body keys:', Object.keys(body))
-    console.log('total_volume_ml value:', body.total_volume_ml, typeof body.total_volume_ml)
-    console.log('target_color:', body.target_color)
-    console.log('optimization_preference:', body.optimization_preference)
-    console.log('=== END DEBUG ===')
+    logger.info('=== DEBUG: Raw request body ===')
+    logger.info('Received request body:', JSON.stringify(body, null, 2))
+    logger.info('Body keys:', Object.keys(body))
+    logger.info('total_volume_ml value:', body.total_volume_ml, typeof body.total_volume_ml)
+    logger.info('target_color:', body.target_color)
+    logger.info('optimization_preference:', body.optimization_preference)
+    logger.info('=== END DEBUG ===')
 
     // Validate request
     const validatedData = ColorMatchRequestSchema.parse(body)
@@ -227,7 +228,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response)
 
   } catch (error) {
-    console.error('Color matching error:', error)
+    logger.error('Color matching error:', error)
 
     if (error instanceof z.ZodError) {
       const errorResponse: ColorMatchErrorResponse = {

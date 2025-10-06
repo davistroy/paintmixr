@@ -24,7 +24,7 @@ import {
   clearLocalLockout
 } from '@/lib/auth/rate-limit'
 import { apiPost } from '@/lib/api/client'
-import type { EmailSigninInput, EmailSigninResponse } from '@/types/auth'
+import type { EmailSigninInput, EmailSigninResponse } from '@/lib/types'
 
 interface EmailSigninFormProps {
   redirectTo?: string
@@ -106,7 +106,7 @@ export default function EmailSigninForm({
         if (mounted) {
           clearLocalLockout(data.email)
         }
-        router.push(redirectTo || response.data.redirectUrl || '/')
+        router.push(redirectTo || response.data.redirectTo || '/')
         router.refresh()
       } else {
         // Error - display message and update local lockout tracking

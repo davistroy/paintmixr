@@ -75,7 +75,7 @@ export default function PaintLibrary({
         finish_type: 'matte',
         collection_id: collectionId
       });
-    } catch (error) {
+    } catch {
       // Error is already set in state by savePaint
     }
   };

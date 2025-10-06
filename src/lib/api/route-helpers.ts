@@ -6,12 +6,14 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logging/logger';
 
 /**
  * Get the current authenticated user
  * @throws Error if user is not authenticated
  */
-export async function getCurrentUser(supabase: any) {
+export async function getCurrentUser(supabase: SupabaseClient) {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) {
     throw new Error('Unauthorized');
@@ -94,11 +96,11 @@ export function createSuccessResponse<T>(
  * Handle common API route errors
  */
 export function handleApiError(error: unknown): NextResponse<ApiErrorResponse> {
-  console.error('API error:', error);
+  logger.error('API error:', error);
 
   // Zod validation error
   if (error instanceof z.ZodError) {
-    return createErrorResponse('VALIDATION_ERROR', 'Validation failed', error.errors);
+    return createErrorResponse('VALIDATION_ERROR', 'Validation failed', error.issues);
   }
 
   // Unauthorized error
