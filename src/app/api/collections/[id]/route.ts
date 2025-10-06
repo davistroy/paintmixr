@@ -127,7 +127,7 @@ export async function GET(_request: NextRequest, props: { params: Promise<{ id: 
     }, { headers: addCacheHeaders() });
 
   } catch (error) {
-    logger.error('GET /api/collections/[id] error:', error);
+    logger.error({ err: error }, 'GET /api/collections/[id] error');
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
