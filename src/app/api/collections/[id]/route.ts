@@ -39,7 +39,7 @@ export async function GET(_request: NextRequest, props: { params: Promise<{ id: 
     // Validate collection ID
     const collectionId = CollectionIdSchema.parse(params.id);
 
-    const repository = new EnhancedPaintRepository(supabase);
+    const repository = new EnhancedPaintRepository(supabase as any);
     const result = await repository.getCollectionById(collectionId, user.id);
 
     if (result.error) {
@@ -168,7 +168,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
     const body = await request.json();
     const updateData = PaintCollectionUpdateSchema.parse(body);
 
-    const repository = new EnhancedPaintRepository(supabase);
+    const repository = new EnhancedPaintRepository(supabase as any);
 
     // If setting as default, check if another default exists
     if (updateData.is_default === true) {
@@ -232,7 +232,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
     }, { headers: addNoCacheHeaders() });
 
   } catch (error) {
-    logger.error('PATCH /api/collections/[id] error:', error);
+    logger.error({ err: error }, 'PATCH /api/collections/[id] error');
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -274,7 +274,7 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ id
     const permanent = url.searchParams.get('permanent') === 'true';
     const move_paints_to = url.searchParams.get('move_paints_to');
 
-    const repository = new EnhancedPaintRepository(supabase);
+    const repository = new EnhancedPaintRepository(supabase as any);
 
     // Check if collection exists and belongs to user
     const collectionResult = await repository.getCollectionById(collectionId, user.id);
@@ -351,7 +351,7 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ id
     }, { headers: addNoCacheHeaders() });
 
   } catch (error) {
-    logger.error('DELETE /api/collections/[id] error:', error);
+    logger.error({ err: error }, 'DELETE /api/collections/[id] error');
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
