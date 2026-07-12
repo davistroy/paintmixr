@@ -573,10 +573,8 @@ describe('Client-Side Lockout (localStorage)', () => {
       const tempWindow = global.window
       delete (global as any).window
 
-      updateLocalLockout('user@example.com')
-
-      // Should not throw error
-      expect(true).toBe(true)
+      // Should not throw when window is undefined
+      expect(() => updateLocalLockout('user@example.com')).not.toThrow()
 
       global.window = tempWindow
     })
@@ -603,10 +601,8 @@ describe('Client-Side Lockout (localStorage)', () => {
       const tempWindow = global.window
       delete (global as any).window
 
-      clearLocalLockout('user@example.com')
-
-      // Should not throw error
-      expect(true).toBe(true)
+      // Should not throw when window is undefined
+      expect(() => clearLocalLockout('user@example.com')).not.toThrow()
 
       global.window = tempWindow
     })

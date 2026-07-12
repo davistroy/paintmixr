@@ -1,9 +1,17 @@
 {
+<<<<<<< Updated upstream
   "timestamp": "2025-10-05T23:54:03.855Z",
   "duration": 39293,
   "success": false,
   "errorCount": 0,
   "warningCount": 0,
+=======
+  "timestamp": "2025-10-05T20:33:38.740Z",
+  "duration": 284780,
+  "success": false,
+  "errorCount": 0,
+  "warningCount": 6,
+>>>>>>> Stashed changes
   "bundleCount": 0,
   "totalSize": 0
 }

@@ -295,8 +295,9 @@ describe('Checkbox Performance', () => {
         )
       }
 
-      // Should handle without performance degradation
-      expect(true).toBe(true)
+      // Should render final state without errors
+      expect(screen.getByTestId('enhanced-mode-checkbox')).toBeInTheDocument()
+      expect(screen.getByTestId('enhanced-mode-checkbox')).toHaveAttribute('aria-checked', 'true')
     })
   })
 
